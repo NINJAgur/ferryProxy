@@ -41,15 +41,16 @@ export class HttpError extends Error {
 
 export async function postChat(
   envelope: ChatRequestEnvelope,
-  timeoutMs: number
+  timeoutMs: number,
+  userKey?: string
 ): Promise<ChatResponseEnvelope> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // Sent as a header, never inside the payload: the payload is compressed,
+  // chunked and cached on the relay, and a credential belongs in none of that.
+  if (userKey) headers["X-Provider-Key"] = userKey;
   const response = await fetchWithTimeout(
     `${BASE_URL}/v1/chat`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(envelope),
-    },
+    { method: "POST", headers, body: JSON.stringify(envelope) },
     timeoutMs
   );
 

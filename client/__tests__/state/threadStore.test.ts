@@ -2,42 +2,70 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useThreadStore } from "../../src/state/threadStore";
 
-const STORAGE_KEY = "ferry.thread.v1";
+const STORAGE_KEY = "ferry.chats.v1";
 
 beforeEach(async () => {
   await AsyncStorage.clear();
-  useThreadStore.setState({ messages: [] });
+  useThreadStore.setState({ conversations: [], activeId: null });
 });
 
-describe("threadStore", () => {
-  it("appends and patches messages", () => {
-    const store = useThreadStore.getState();
-    store.append({ id: "a", role: "user", content: "hi", timestamp: 1, status: "sending" });
-    useThreadStore.getState().patch("a", { status: "delivered" });
+function msg(id: string, content: string, role: "user" | "assistant" = "user") {
+  return { id, role, content, timestamp: 1, status: "delivered" as const };
+}
 
-    const messages = useThreadStore.getState().messages;
-    expect(messages).toHaveLength(1);
-    expect(messages[0].status).toBe("delivered");
+describe("threadStore", () => {
+  it("startNew opens a chat and makes it active", () => {
+    useThreadStore.getState().startNew("c1");
+    const s = useThreadStore.getState();
+    expect(s.activeId).toBe("c1");
+    expect(s.conversations).toHaveLength(1);
   });
 
-  it("writes the thread to device storage so it survives a restart", async () => {
-    useThreadStore.getState().append({
-      id: "a",
-      role: "assistant",
-      content: "kept",
-      timestamp: 1,
-      status: "delivered",
-    });
+  it("titles a chat from its first question", () => {
+    useThreadStore.getState().startNew("c1");
+    useThreadStore.getState().append(msg("m1", "Is a 9% rent rise normal?"));
+    expect(useThreadStore.getState().conversations[0].title).toBe("Is a 9% rent rise normal?");
+  });
 
-    // zustand/persist flushes asynchronously.
+  it("keeps the title once set, rather than renaming on every message", () => {
+    useThreadStore.getState().startNew("c1");
+    useThreadStore.getState().append(msg("m1", "First question"));
+    useThreadStore.getState().append(msg("m2", "Second question"));
+    expect(useThreadStore.getState().conversations[0].title).toBe("First question");
+  });
+
+  it("keeps chats separate", () => {
+    const store = useThreadStore.getState();
+    store.startNew("c1");
+    useThreadStore.getState().append(msg("m1", "in chat one"));
+    useThreadStore.getState().startNew("c2");
+    useThreadStore.getState().append(msg("m2", "in chat two"));
+
+    const byId = Object.fromEntries(useThreadStore.getState().conversations.map((c) => [c.id, c]));
+    expect(byId.c1.messages.map((m) => m.content)).toEqual(["in chat one"]);
+    expect(byId.c2.messages.map((m) => m.content)).toEqual(["in chat two"]);
+  });
+
+  it("patch only touches the open chat", () => {
+    useThreadStore.getState().startNew("c1");
+    useThreadStore.getState().append(msg("m1", "hi"));
+    useThreadStore.getState().patch("m1", { status: "failed" });
+    expect(useThreadStore.getState().conversations[0].messages[0].status).toBe("failed");
+  });
+
+  it("remove deletes a chat and clears it if it was open", () => {
+    useThreadStore.getState().startNew("c1");
+    useThreadStore.getState().remove("c1");
+    expect(useThreadStore.getState().conversations).toHaveLength(0);
+    expect(useThreadStore.getState().activeId).toBeNull();
+  });
+
+  it("writes chats to device storage so they survive a restart", async () => {
+    useThreadStore.getState().startNew("c1");
+    useThreadStore.getState().append(msg("m1", "kept across restarts"));
+
     await new Promise((r) => setTimeout(r, 0));
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    expect(raw).toContain("kept");
-  });
-
-  it("clear empties the thread", () => {
-    useThreadStore.getState().append({ id: "a", role: "user", content: "x", timestamp: 1, status: "delivered" });
-    useThreadStore.getState().clear();
-    expect(useThreadStore.getState().messages).toEqual([]);
+    expect(raw).toContain("kept across restarts");
   });
 });

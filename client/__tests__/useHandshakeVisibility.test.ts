@@ -13,6 +13,15 @@ describe("shouldAppear", () => {
   it("appears when the link is still down at the end of the grace period", () => {
     expect(shouldAppear(false)).toBe(true);
   });
+
+  it("appears on a first run even when everything is instantly ready", () => {
+    // Otherwise a fast local link means the panel is never seen at all.
+    expect(shouldAppear(true, true)).toBe(true);
+  });
+
+  it("stays hidden on later runs once the link is up", () => {
+    expect(shouldAppear(true, false)).toBe(false);
+  });
 });
 
 describe("holdDurationMs", () => {

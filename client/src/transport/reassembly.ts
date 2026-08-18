@@ -24,6 +24,7 @@ export interface SendPromptInput {
   model?: string;
   maxTokens?: number;
   brief?: boolean;
+  userKey?: string;
   sessionId: string;
 }
 
@@ -190,7 +191,7 @@ export async function sendPrompt(
   const compressedBytesSent = byteLength(JSON.stringify(envelope));
 
   return withTimeoutBudget(
-    runRequest(envelope, dispatch, startTime, rawPromptBytes, compressedBytesSent),
+    runRequest(envelope, dispatch, startTime, rawPromptBytes, compressedBytesSent, input.userKey),
     REASSEMBLY_BUDGET_MS,
     () => new Error("reassembly budget exceeded")
   );
@@ -201,14 +202,15 @@ async function runRequest(
   dispatch: (event: ReassemblyEvent) => void,
   startTime: number,
   rawPromptBytes: number,
-  compressedBytesSent: number
+  compressedBytesSent: number,
+  userKey?: string
 ): Promise<SendPromptResult> {
   let responseEnvelope: Awaited<ReturnType<typeof postChat>> | undefined;
   let lastError: unknown;
 
   for (let attempt = 0; attempt < CHUNK_RETRY_MAX_ATTEMPTS; attempt++) {
     try {
-      responseEnvelope = await postChat(envelope, CHUNK_FETCH_TIMEOUT_MS);
+      responseEnvelope = await postChat(envelope, CHUNK_FETCH_TIMEOUT_MS, userKey);
       break;
     } catch (err) {
       lastError = err;

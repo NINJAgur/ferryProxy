@@ -32,6 +32,12 @@ def _error(status_code: int, error: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=body)
 
 
+# The caller's own key rides in a header, never in the payload: the payload is
+# compressed, chunked and held in the response cache, and a credential has no
+# business in any of that.
+PROVIDER_KEY_HEADER = "X-Provider-Key"
+
+
 @router.post("/v1/chat")
 async def chat(envelope: ChatRequestEnvelope, request: Request) -> JSONResponse:
     try:
@@ -59,6 +65,7 @@ async def chat(envelope: ChatRequestEnvelope, request: Request) -> JSONResponse:
             history=plaintext.history,
             model=plaintext.model,
             max_tokens=max_tokens,
+            api_key=request.headers.get(PROVIDER_KEY_HEADER) or None,
         )
     except LLMConfigError as exc:
         return _error(503, "provider_not_configured", str(exc))

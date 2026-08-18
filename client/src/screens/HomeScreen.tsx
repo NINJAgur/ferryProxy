@@ -27,38 +27,56 @@ import {
 } from "../state/settingsStore";
 import { PendingSend, ThreadMessage } from "../state/thread";
 import { useThreadStore } from "../state/threadStore";
+import { useKeyStore } from "../state/keyStore";
 import { PressState } from "../components/pressState";
 import { colors, fonts } from "../theme";
-import { checkHealth, fetchProviders, HttpError } from "../transport/httpClient";
+import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
 import { sendPrompt } from "../transport/reassembly";
 import { ReassemblyStatus } from "../transport/reassemblyState";
 import { Provider, ProviderStatus } from "../transport/types";
 import { useHandshakeVisibility } from "../useHandshakeVisibility";
 
-export function HomeScreen() {
+export function HomeScreen({
+  providers,
+  refreshProviders,
+}: {
+  providers: ProviderStatus[];
+  refreshProviders: () => void;
+}) {
   const sessionId = useRef(generateId()).current;
   const inputRef = useRef<TextInput>(null);
   const notifyRef = useRef(false);
 
   const [draft, setDraft] = useState("");
   const [provider, setProvider] = useState<Provider>("demo");
-  const messages = useThreadStore((t) => t.messages);
+  const conversations = useThreadStore((t) => t.conversations);
+  const activeId = useThreadStore((t) => t.activeId);
   const appendMessage = useThreadStore((t) => t.append);
   const patchMessage = useThreadStore((t) => t.patch);
+  const startNew = useThreadStore((t) => t.startNew);
+  const messages = conversations.find((c) => c.id === activeId)?.messages ?? [];
   const [pending, setPending] = useState<PendingSend | null>(null);
   const [pendingState, setPendingState] = useState<ReassemblyStatus>({ status: "idle" });
   const [queued, setQueued] = useState<QueuedMessage[]>([]);
   const [online, setOnline] = useState(true);
   const [wifiJoined, setWifiJoined] = useState(false);
   const [reachedServer, setReachedServer] = useState(false);
-  const [providers, setProviders] = useState<ProviderStatus[]>([]);
 
   const addMetric = useMetricsStore((s) => s.addMessage);
+  const { keys, load } = useKeyStore();
   const settings = useSettingsStore();
 
   const refreshQueue = () => void loadQueue().then(setQueued);
   const patch = patchMessage;
+
+  useEffect(() => {
+    if (!activeId) startNew(generateId());
+  }, [activeId, startNew]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   useEffect(() => {
     void NetInfo.fetch().then((s) => {
@@ -66,7 +84,6 @@ export function HomeScreen() {
       setOnline(!!s.isConnected);
     });
     void checkHealth().then(setReachedServer);
-    void fetchProviders().then(setProviders);
     return NetInfo.addEventListener((s) => setOnline(!!s.isConnected));
   }, []);
 
@@ -78,7 +95,8 @@ export function HomeScreen() {
         onMessageComplete: (q, content) => {
           refreshQueue();
           const store = useThreadStore.getState();
-          if (store.messages.some((m) => m.id === q.id)) {
+          const open = store.conversations.find((c) => c.id === store.activeId);
+          if (open?.messages.some((m) => m.id === q.id)) {
             store.patch(q.id, { status: "delivered" });
           } else {
             store.append({
@@ -114,7 +132,13 @@ export function HomeScreen() {
     patch(id, { status: "sending" });
     try {
       const result = await sendPrompt(
-        { prompt: content, provider: used, sessionId, brief: settings.answerShortFirst },
+        {
+          prompt: content,
+          provider: used,
+          sessionId,
+          brief: settings.answerShortFirst,
+          userKey: keys[used],
+        },
         setPendingState
       );
       patch(id, { status: "delivered", failReason: undefined });
@@ -132,6 +156,12 @@ export function HomeScreen() {
     } catch (err) {
       if (err instanceof HttpError) {
         patch(id, { status: "failed", failReason: err.message });
+        // 503 no key, 401/403 rejected, 429 out of quota: the credential is the
+        // problem, not the line, so show what is actually broken.
+        if ([401, 403, 429, 503].includes(err.status)) {
+          refreshProviders();
+          reshowHandshake();
+        }
       } else {
         await enqueue({ id, prompt: content, provider: used });
         patch(id, { status: "queued" });
@@ -168,19 +198,24 @@ export function HomeScreen() {
   const offlineMode = !online || queued.length > 0;
 
   const active = providers.find((p) => p.name === provider);
-  const providerReady = !!active?.ready;
+  const providerReady = !!active?.ready || !!keys[provider];
   const providerHint =
-    active && !active.ready && active.envVar
-      ? `${active.label} needs ${active.envVar} in server/.env. Demo answers work without any key.`
+    active && !active.ready && !keys[provider] && active.requiresKey
+      ? `${active.label} needs a key. Add your own in Settings, or set ${active.envVar} on the relay.`
       : undefined;
 
   // Only show the handshake for a wait that is really happening: skipped entirely
   // when the link is already up, and never flashed past for a fraction of a second.
   const linkReady = wifiJoined && reachedServer && providerReady;
-  const [showHandshake, dismissHandshake] = useHandshakeVisibility(
+  const [showHandshake, dismissHandshake, reshowHandshake] = useHandshakeVisibility(
     linkReady,
-    messages.length > 0 || queued.length > 0
+    messages.length > 0 || queued.length > 0,
+    !settings.introSeen
   );
+
+  useEffect(() => {
+    if (showHandshake && !settings.introSeen) settings.markIntroSeen();
+  }, [showHandshake, settings]);
 
   if (showHandshake) {
     return (

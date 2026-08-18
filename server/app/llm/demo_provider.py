@@ -52,6 +52,7 @@ class DemoProvider:
         history: List[HistoryMessage],
         model: Optional[str],
         max_tokens: Optional[int],
+        api_key: Optional[str] = None,
     ) -> LLMResult:
         await asyncio.sleep(settings.demo_delay_ms / 1000)
         # Length tracks the token budget, so "Answer short first" visibly changes the

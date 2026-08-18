@@ -14,7 +14,8 @@ class FakeProvider:
         self._content = content
         self._raises = raises
 
-    async def generate(self, prompt, history, model, max_tokens):
+    async def generate(self, prompt, history, model, max_tokens, api_key=None):
+        self.seen_api_key = api_key
         if self._raises is not None:
             raise self._raises
         return LLMResult(content=self._content, model="fake-model", stop_reason="end_turn")
@@ -112,3 +113,36 @@ def test_chunked_response_and_reassembly(client, monkeypatch):
     decompressed = decode_payload(body["a"], reassembled_b64)
     assert sha256_hex(decompressed) == body["k"]
     assert json.loads(decompressed)["content"] == "x" * 5000
+
+
+def test_user_supplied_key_reaches_the_provider(client, monkeypatch):
+    fake = FakeProvider(content="answered with the caller's own key")
+    _patch_provider(monkeypatch, fake)
+
+    envelope = build_envelope({"prompt": "hi", "provider": "gemini"})
+    response = client.post("/v1/chat", json=envelope, headers={"X-Provider-Key": "user-key-123"})
+
+    assert response.status_code == 200
+    assert fake.seen_api_key == "user-key-123"
+
+
+def test_user_key_is_never_echoed_into_the_response(client, monkeypatch):
+    _patch_provider(monkeypatch, FakeProvider(content="short reply"))
+
+    envelope = build_envelope({"prompt": "hi"})
+    response = client.post("/v1/chat", json=envelope, headers={"X-Provider-Key": "user-key-123"})
+
+    # The key must not survive into anything that gets cached, chunked or logged.
+    assert "user-key-123" not in response.text
+    body = response.json()
+    assert b"user-key-123" not in decode_payload(body["a"], body["c"])
+
+
+def test_no_key_header_leaves_the_relay_key_in_charge(client, monkeypatch):
+    fake = FakeProvider(content="short reply")
+    _patch_provider(monkeypatch, fake)
+
+    response = client.post("/v1/chat", json=build_envelope({"prompt": "hi"}))
+
+    assert response.status_code == 200
+    assert fake.seen_api_key is None

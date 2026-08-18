@@ -11,9 +11,12 @@ class OpenAIProvider:
     def __init__(self) -> None:
         self._client: Optional[AsyncOpenAI] = None
 
-    def _client_or_raise(self) -> AsyncOpenAI:
+    def _client_for(self, api_key: Optional[str]) -> AsyncOpenAI:
+        # A caller-supplied key is used for that call only and never cached.
+        if api_key:
+            return AsyncOpenAI(api_key=api_key)
         if not settings.openai_api_key:
-            raise LLMConfigError("OPENAI_API_KEY is not configured")
+            raise LLMConfigError("no OpenAI key: add one in the app, or set OPENAI_API_KEY on the relay")
         if self._client is None:
             self._client = AsyncOpenAI(api_key=settings.openai_api_key)
         return self._client
@@ -24,8 +27,9 @@ class OpenAIProvider:
         history: List[HistoryMessage],
         model: Optional[str],
         max_tokens: int,
+        api_key: Optional[str] = None,
     ) -> LLMResult:
-        client = self._client_or_raise()
+        client = self._client_for(api_key)
         messages = [{"role": h.role, "content": h.content} for h in history]
         messages.append({"role": "user", "content": prompt})
 

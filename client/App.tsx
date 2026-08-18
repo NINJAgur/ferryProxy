@@ -5,26 +5,41 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { PressState } from "./src/components/pressState";
+import { ChatsScreen } from "./src/screens/ChatsScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { useThreadStore } from "./src/state/threadStore";
 import { colors, fonts } from "./src/theme";
+import { fetchProviders } from "./src/transport/httpClient";
+import { generateId } from "./src/transport/ids";
+import { ProviderStatus } from "./src/transport/types";
 
-type Screen = "home" | "history" | "settings";
+type Screen = "chat" | "chats" | "data" | "settings";
 
 const TABS: { key: Screen; label: string }[] = [
-  { key: "home", label: "Thread" },
-  { key: "history", label: "Data" },
+  { key: "chat", label: "Chat" },
+  { key: "chats", label: "History" },
+  { key: "data", label: "Data" },
   { key: "settings", label: "Settings" },
 ];
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>("chat");
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [loaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
+  const openChat = useThreadStore((s) => s.open);
+  const startNew = useThreadStore((s) => s.startNew);
+
+  const refreshProviders = useCallback(() => {
+    void fetchProviders().then(setProviders);
+  }, []);
+
+  useEffect(refreshProviders, [refreshProviders]);
 
   if (!loaded) {
     return <View style={styles.container} />;
@@ -46,7 +61,25 @@ export default function App() {
           </Pressable>
         ))}
       </View>
-      {screen === "home" ? <HomeScreen /> : screen === "history" ? <HistoryScreen /> : <SettingsScreen />}
+
+      {screen === "chat" ? (
+        <HomeScreen providers={providers} refreshProviders={refreshProviders} />
+      ) : screen === "chats" ? (
+        <ChatsScreen
+          onOpen={(id) => {
+            openChat(id);
+            setScreen("chat");
+          }}
+          onNew={() => {
+            startNew(generateId());
+            setScreen("chat");
+          }}
+        />
+      ) : screen === "data" ? (
+        <HistoryScreen />
+      ) : (
+        <SettingsScreen providers={providers} />
+      )}
       <StatusBar style="light" />
     </SafeAreaView>
   );
@@ -58,11 +91,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 4,
-    paddingHorizontal: 12,
+    gap: 2,
+    paddingHorizontal: 10,
     paddingTop: 6,
   },
-  navItem: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
-  navLabel: { fontFamily: fonts.body, fontSize: 14, color: colors.text55 },
+  navItem: { paddingVertical: 6, paddingHorizontal: 9, borderRadius: 8 },
+  navLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.text55 },
   navLabelActive: { color: colors.accent },
 });

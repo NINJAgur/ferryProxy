@@ -1,11 +1,14 @@
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { FadingRule } from "../components/FadingRule";
-import { Toggle } from "../components/Toggle";
-import { SettingsValues, useSettingsStore } from "../state/settingsStore";
+import { KeyField } from "../components/KeyField";
 import { PressState } from "../components/pressState";
+import { Toggle } from "../components/Toggle";
+import { KEYED_PROVIDERS, useKeyStore } from "../state/keyStore";
+import { SettingsValues, useSettingsStore } from "../state/settingsStore";
 import { colors, fonts } from "../theme";
+import { Provider, ProviderStatus } from "../transport/types";
 
 const SETTINGS: { key: keyof SettingsValues; label: string; note: string }[] = [
   {
@@ -26,8 +29,22 @@ const SETTINGS: { key: keyof SettingsValues; label: string; note: string }[] = [
   },
 ];
 
-export function SettingsScreen() {
+const KEY_HELP: Record<string, string> = {
+  anthropic: "console.anthropic.com — paid per token",
+  openai: "platform.openai.com — paid per token",
+  gemini: "aistudio.google.com/apikey — has a free tier",
+};
+
+export function SettingsScreen({ providers }: { providers: ProviderStatus[] }) {
   const settings = useSettingsStore();
+  const { keys, load, setKey } = useKeyStore();
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const labelFor = (p: Provider) => providers.find((x) => x.name === p)?.label ?? p;
+  const relayHasKey = (p: Provider) => !!providers.find((x) => x.name === p)?.ready;
 
   return (
     <View style={styles.screen}>
@@ -42,10 +59,7 @@ export function SettingsScreen() {
             <Pressable
               key={row.key}
               onPress={() => settings.setSetting(row.key, !settings[row.key])}
-              style={({ hovered }: PressState) => [
-                styles.row,
-                hovered && { backgroundColor: colors.textHover },
-              ]}
+              style={({ hovered }: PressState) => [styles.row, hovered && { backgroundColor: colors.textHover }]}
             >
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>{row.label}</Text>
@@ -55,6 +69,37 @@ export function SettingsScreen() {
             </Pressable>
           ))}
         </View>
+
+        <Text style={styles.sectionTitle}>Your API keys</Text>
+        <Text style={styles.sectionNote}>
+          A key here is yours: it is sent with your requests only, so the usage lands on your own
+          account rather than the relay's. Without one, Ferry falls back to whatever key the relay
+          itself has — which may be none.
+        </Text>
+        {KEYED_PROVIDERS.map((p) => (
+          <KeyField
+            key={p}
+            provider={p}
+            label={labelFor(p)}
+            help={KEY_HELP[p] ?? ""}
+            value={keys[p]}
+            relayHasKey={relayHasKey(p)}
+            onSave={(provider, value) => void setKey(provider, value)}
+          />
+        ))}
+        <Text style={styles.storageNote}>
+          {Platform.OS === "web"
+            ? "In this browser preview keys sit in localStorage. On a phone they go to the OS keystore."
+            : "Keys are held in the device keystore (Keychain on iOS, Keystore on Android), separate from your chats."}
+        </Text>
+
+        <Text style={styles.sectionTitle}>Where your data lives</Text>
+        <Text style={styles.sectionNote}>
+          Chats, bandwidth figures and these settings are stored on this{" "}
+          {Platform.OS === "web" ? "browser" : "phone"} and are never uploaded. The relay sees a
+          prompt long enough to answer it and keeps no conversation of its own — only a few minutes
+          of the answer's pieces, so a dropped one can be re-fetched.
+        </Text>
 
         <View style={styles.spacer} />
       </ScrollView>
@@ -84,7 +129,10 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowLabel: { fontFamily: fonts.body, fontSize: 14.5, color: colors.text },
   rowNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text45, marginTop: 3, lineHeight: 17.4 },
-  spacer: { height: 24 },
+  sectionTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, marginTop: 28, marginBottom: 6 },
+  sectionNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text45, lineHeight: 18, marginBottom: 6 },
+  storageNote: { fontFamily: fonts.body, fontSize: 11, color: colors.text40, marginTop: 10, lineHeight: 16 },
+  spacer: { height: 28 },
   footer: { paddingHorizontal: 22, paddingBottom: 24 },
   footerText: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text35, marginTop: 14 },
 });

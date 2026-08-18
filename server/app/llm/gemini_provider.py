@@ -15,9 +15,13 @@ class GeminiProvider:
     def __init__(self) -> None:
         self._client: Optional[genai.Client] = None
 
-    def _client_or_raise(self) -> genai.Client:
+    def _client_for(self, api_key: Optional[str]) -> genai.Client:
+        # A caller-supplied key is used for that call only and never cached, so one
+        # user's credential can't be handed to the next request.
+        if api_key:
+            return genai.Client(api_key=api_key)
         if not settings.gemini_api_key:
-            raise LLMConfigError("GEMINI_API_KEY is not configured")
+            raise LLMConfigError("no Gemini key: add one in the app, or set GEMINI_API_KEY on the relay")
         if self._client is None:
             self._client = genai.Client(api_key=settings.gemini_api_key)
         return self._client
@@ -28,8 +32,9 @@ class GeminiProvider:
         history: List[HistoryMessage],
         model: Optional[str],
         max_tokens: int,
+        api_key: Optional[str] = None,
     ) -> LLMResult:
-        client = self._client_or_raise()
+        client = self._client_for(api_key)
         contents = [
             types.Content(role=_ROLE_MAP[h.role], parts=[types.Part(text=h.content)])
             for h in history

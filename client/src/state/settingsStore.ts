@@ -11,6 +11,9 @@ export interface SettingsValues {
 
 interface SettingsState extends SettingsValues {
   setSetting: (key: keyof SettingsValues, value: boolean) => void;
+  /** False until the connection panel has been shown once. */
+  introSeen: boolean;
+  markIntroSeen: () => void;
 }
 
 export const SHORT_ANSWER_MAX_TOKENS = 400;
@@ -27,7 +30,9 @@ export const useSettingsStore = create<SettingsState>()(
       sendWhenLineAppears: true,
       keepTryingQuietly: true,
       warnBeforeLongAnswers: false,
+      introSeen: false,
       setSetting: (key, value) => set({ [key]: value } as Partial<SettingsState>),
+      markIntroSeen: () => set({ introSeen: true }),
     }),
     {
       name: "proxyai.settings.v1",

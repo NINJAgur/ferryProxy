@@ -12,7 +12,7 @@ class LLMResult:
 
 
 class LLMConfigError(Exception):
-    """Raised when a provider is requested but its API key isn't configured."""
+    """Raised when a provider is requested but no usable API key was supplied."""
 
 
 class LLMProviderError(Exception):
@@ -26,4 +26,8 @@ class LLMProvider(Protocol):
         history: List[HistoryMessage],
         model: Optional[str],
         max_tokens: int,
-    ) -> LLMResult: ...
+        api_key: Optional[str] = None,
+    ) -> LLMResult:
+        """`api_key`, when given, is the caller's own key and takes precedence over
+        anything configured on the relay, so each user spends their own quota."""
+        ...

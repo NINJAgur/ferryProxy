@@ -8,9 +8,12 @@ export const HANDSHAKE_MIN_VISIBLE_MS = 1800;
 /** After the last check ticks, hold briefly so the tick is visible. */
 export const HANDSHAKE_SETTLE_MS = 700;
 
-/** Show the panel only if the link is still down once the grace period ends. */
-export function shouldAppear(linkReadyAtGraceEnd: boolean): boolean {
-  return !linkReadyAtGraceEnd;
+/** Show the panel if the link is still down once the grace period ends — or on a
+ *  first run, where it is how someone learns what Ferry is checking. On a fast
+ *  local link every check passes instantly, so without this it would never be
+ *  seen at all. */
+export function shouldAppear(linkReadyAtGraceEnd: boolean, firstRun = false): boolean {
+  return firstRun || !linkReadyAtGraceEnd;
 }
 
 /** How much longer a panel that is already up must stay, so it never blinks out.
@@ -23,18 +26,24 @@ export function holdDurationMs(visibleForMs: number): number {
  * Decides whether the "Finding you a line out" panel should be on screen.
  * Shows it only for a wait that is actually happening, and never for a blink.
  */
-export function useHandshakeVisibility(linkReady: boolean, skip: boolean): [boolean, () => void] {
+export function useHandshakeVisibility(
+  linkReady: boolean,
+  skip: boolean,
+  firstRun = false
+): [boolean, () => void, () => void] {
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const shownAt = useRef<number | null>(null);
   const readyRef = useRef(linkReady);
   readyRef.current = linkReady;
+  const firstRunRef = useRef(firstRun);
+  firstRunRef.current = firstRun;
 
   // Wait out the grace period before showing anything.
   useEffect(() => {
     if (skip || dismissed) return;
     const timer = setTimeout(() => {
-      if (shouldAppear(readyRef.current)) {
+      if (shouldAppear(readyRef.current, firstRunRef.current)) {
         shownAt.current = Date.now();
         setVisible(true);
       }
@@ -59,5 +68,14 @@ export function useHandshakeVisibility(linkReady: boolean, skip: boolean): [bool
     setDismissed(true);
   };
 
-  return [visible && !dismissed && !skip, dismiss];
+  // Bring the panel back when the credential stops working — a key that was
+  // revoked, rejected or ran out of quota puts us back to "no line out", and
+  // that is exactly what this screen is for.
+  const reshow = () => {
+    shownAt.current = Date.now();
+    setDismissed(false);
+    setVisible(true);
+  };
+
+  return [visible && !dismissed && !skip, dismiss, reshow];
 }
