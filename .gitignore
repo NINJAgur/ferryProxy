@@ -1,0 +1,23 @@
+# Python
+server/.venv/
+server/__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Env — never commit real keys
+.env
+server/.env
+
+# Locally generated CA bundle (machine-specific: public roots + local TLS proxy cert)
+server/.certs/
+
+# Node / Expo
+client/node_modules/
+client/.expo/
+client/dist/
+client/npm-debug.*
+
+# OS
+.DS_Store
+Thumbs.db
