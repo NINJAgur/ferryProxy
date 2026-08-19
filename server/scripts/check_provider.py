@@ -1,17 +1,18 @@
-"""Check a provider's credentials and model against the real API.
+"""Check a service-account key and its model against the real API.
 
-Isolates "is the key and model right" from "is the transport working", so a
+Isolates "is this key and model right" from "is the transport working", so a
 failure points at one thing. Usage, from the server directory:
 
-    python scripts/check_provider.py gemini
-    python scripts/check_provider.py gemini --list-models
-    python scripts/check_provider.py gemini --model gemini-2.5-flash
+    python scripts/check_provider.py                    # every configured slot
+    python scripts/check_provider.py gemini-free
+    python scripts/check_provider.py gemini-paid --list-gemini
 """
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -21,21 +22,40 @@ from app.llm.registry import get_provider  # noqa: E402
 
 logger = logging.getLogger("check_provider")
 
-_ENV_VARS = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-}
+
+def _slots() -> Dict[str, Tuple[str, str, str, Optional[str]]]:
+    """slot -> (env var, provider, model, key)"""
+    return {
+        "gemini-free": (
+            "GEMINI_FREE_API_KEY",
+            "gemini",
+            settings.gemini_free_model,
+            settings.gemini_free_api_key,
+        ),
+        "gemini-paid": (
+            "GEMINI_PAID_API_KEY",
+            "gemini",
+            settings.gemini_paid_model,
+            settings.gemini_paid_api_key,
+        ),
+        "openai": ("OPENAI_API_KEY", "openai", settings.openai_model, settings.openai_api_key),
+        "anthropic": (
+            "ANTHROPIC_API_KEY",
+            "anthropic",
+            settings.anthropic_model,
+            settings.anthropic_api_key,
+        ),
+    }
 
 
-def list_gemini_models() -> int:
+def list_gemini_models(api_key: Optional[str]) -> int:
     from google import genai
 
-    if not settings.gemini_api_key:
-        logger.error("GEMINI_API_KEY is not set in server/.env")
+    if not api_key:
+        logger.error("that Gemini slot has no key set")
         return 1
-    client = genai.Client(api_key=settings.gemini_api_key)
-    logger.info("models that support generateContent:")
+    client = genai.Client(api_key=api_key)
+    logger.info("models this key can call:")
     for model in client.models.list():
         actions = getattr(model, "supported_actions", None) or []
         if not actions or "generateContent" in actions:
@@ -43,35 +63,52 @@ def list_gemini_models() -> int:
     return 0
 
 
-async def check(name: str, model: str, prompt: str) -> int:
-    provider = get_provider(name)
-    logger.info("calling %s (model=%s)...", name, model or "<default>")
-    try:
-        result = await provider.generate(prompt=prompt, history=[], model=model, max_tokens=256)
-    except LLMConfigError:
-        logger.error("%s is not configured — set %s in server/.env", name, _ENV_VARS.get(name, "its API key"))
-        return 1
-    except LLMProviderError as exc:
-        logger.error("the provider rejected the call: %s", exc)
-        return 1
+async def check_slot(slot: str, prompt: str) -> bool:
+    env_var, provider_name, model, api_key = _slots()[slot]
+    if not api_key:
+        logger.info("%-12s SKIP  %s is not set", slot, env_var)
+        return True
 
-    logger.info("OK — model reported as %s, stop_reason=%s", result.model, result.stop_reason)
-    logger.info("answer (%d chars):\n%s", len(result.content), result.content.strip()[:600])
-    return 0
+    provider = get_provider(provider_name)
+    try:
+        result = await provider.generate(
+            prompt=prompt, history=[], model=model, max_tokens=2048, api_key=api_key
+        )
+    except LLMConfigError as exc:
+        logger.error("%-12s FAIL  %s", slot, exc)
+        return False
+    except LLMProviderError as exc:
+        # The provider's own message is the useful part: a 429 means the key works
+        # but its tier does not cover this model, which looks nothing like a wrong key.
+        logger.error("%-12s FAIL  %s", slot, str(exc)[:170])
+        return False
+
+    answer = result.content.strip().replace("\n", " ")[:60]
+    logger.info("%-12s OK    %s -> %r", slot, model, answer)
+    return True
+
+
+async def run(slots: List[str], prompt: str) -> int:
+    ok = True
+    for slot in slots:
+        ok = await check_slot(slot, prompt) and ok
+    return 0 if ok else 1
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser()
-    parser.add_argument("provider", choices=["anthropic", "openai", "gemini"])
-    parser.add_argument("--model", default=None, help="override the configured model")
+    parser.add_argument("slot", nargs="?", choices=sorted(_slots()), help="default: every slot")
     parser.add_argument("--prompt", default="Reply with one short sentence confirming you are working.")
-    parser.add_argument("--list-models", action="store_true", help="gemini only: list usable models")
+    parser.add_argument("--list-gemini", action="store_true", help="list models this Gemini key can call")
     args = parser.parse_args()
 
-    if args.list_models:
-        raise SystemExit(list_gemini_models())
-    raise SystemExit(asyncio.run(check(args.provider, args.model, args.prompt)))
+    if args.list_gemini:
+        slot = args.slot or "gemini-free"
+        raise SystemExit(list_gemini_models(_slots()[slot][3]))
+
+    slots = [args.slot] if args.slot else list(_slots())
+    raise SystemExit(asyncio.run(run(slots, args.prompt)))
 
 
 if __name__ == "__main__":

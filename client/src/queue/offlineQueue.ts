@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { generateId } from "../transport/ids";
-import { HistoryMessage, Provider } from "../transport/types";
+import { HistoryMessage } from "../transport/types";
 
 const STORAGE_KEY = "proxyai.offline_queue.v1";
 
@@ -11,7 +11,6 @@ export interface QueuedMessage {
   id: string;
   prompt: string;
   history: HistoryMessage[];
-  provider?: Provider;
   model?: string;
   maxTokens?: number;
   createdAt: number;
@@ -37,7 +36,6 @@ export async function enqueue(input: {
   id?: string;
   prompt: string;
   history?: HistoryMessage[];
-  provider?: Provider;
   model?: string;
   maxTokens?: number;
 }): Promise<QueuedMessage> {
@@ -46,7 +44,6 @@ export async function enqueue(input: {
     id: input.id ?? generateId(),
     prompt: input.prompt,
     history: input.history ?? [],
-    provider: input.provider,
     model: input.model,
     maxTokens: input.maxTokens,
     createdAt: Date.now(),

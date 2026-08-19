@@ -1,5 +1,3 @@
-import { Provider } from "../transport/types";
-
 export type MessageStatus = "sending" | "delivered" | "failed" | "queued";
 
 export interface ThreadMessage {
@@ -8,7 +6,8 @@ export interface ThreadMessage {
   content: string;
   timestamp: number;
   status: MessageStatus;
-  provider?: Provider;
+  /** Which model answered, for showing on a retry. */
+  model?: string;
   note?: string;
   failReason?: string;
   retryCount?: number;

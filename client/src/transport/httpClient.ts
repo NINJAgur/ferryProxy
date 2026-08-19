@@ -3,16 +3,18 @@ import {
   ChatResponseEnvelope,
   ChunkResponse,
   ErrorEnvelope,
-  ProviderStatus,
   SessionInfo,
 } from "./types";
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
-export async function fetchSession(idToken: string, timeoutMs = 15000): Promise<SessionInfo> {
+/** Works with or without a token: anonymous callers still get the free model. */
+export async function fetchSession(idToken?: string, timeoutMs = 15000): Promise<SessionInfo> {
+  const headers: Record<string, string> = {};
+  if (idToken) headers.Authorization = `Bearer ${idToken}`;
   const response = await fetchWithTimeout(
     `${BASE_URL}/v1/session`,
-    { method: "POST", headers: { Authorization: `Bearer ${idToken}` } },
+    { method: "POST", headers },
     timeoutMs
   );
   if (!response.ok) {
@@ -39,17 +41,6 @@ export async function setSubscription(
     throw new HttpError(response.status, await safeJson<ErrorEnvelope>(response));
   }
   return response.json();
-}
-
-export async function fetchProviders(timeoutMs = 5000): Promise<ProviderStatus[]> {
-  try {
-    const response = await fetchWithTimeout(`${BASE_URL}/v1/providers`, { method: "GET" }, timeoutMs);
-    if (!response.ok) return [];
-    const body = (await response.json()) as { providers: ProviderStatus[] };
-    return body.providers;
-  } catch {
-    return [];
-  }
 }
 
 export async function checkHealth(timeoutMs = 5000): Promise<boolean> {

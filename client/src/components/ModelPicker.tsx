@@ -1,36 +1,32 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
-import { PressState } from "./pressState";
 import { colors, fonts, radius } from "../theme";
-import { ModelAccess, Provider } from "../transport/types";
+import { ModelInfo } from "../transport/types";
+import { PressState } from "./pressState";
 
-const OPTIONS: { value: Provider; label: string }[] = [
-  { value: "anthropic", label: "Claude" },
-  { value: "openai", label: "GPT" },
-  { value: "gemini", label: "Gemini" },
-];
-
-interface ProviderPickerProps {
-  value: Provider;
-  onChange: (provider: Provider) => void;
+interface ModelPickerProps {
+  value: string;
+  onChange: (modelId: string) => void;
   disabled?: boolean;
-  /** What this account may use. A locked model is shown but cannot be chosen. */
-  models?: ModelAccess[];
+  /** The relay's catalogue. A locked model is shown but cannot be chosen. */
+  models: ModelInfo[];
 }
 
-/** The design system's `.seg` segmented control. */
-export function ProviderPicker({ value, onChange, disabled, models }: ProviderPickerProps) {
+/** The design system's `.seg` control, driven by the catalogue rather than a
+ *  hardcoded list — the relay decides what exists and what is reachable. */
+export function ModelPicker({ value, onChange, disabled, models }: ModelPickerProps) {
+  if (models.length === 0) return null;
+
   return (
-    <View style={styles.seg}>
-      {OPTIONS.map((option, index) => {
-        const active = option.value === value;
-        const access = models?.find((m) => m.name === option.value);
-        const locked = !!models && !access?.unlocked;
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seg}>
+      {models.map((model, index) => {
+        const active = model.id === value;
+        const locked = !model.unlocked;
         return (
           <Pressable
-            key={option.value}
-            onPress={() => onChange(option.value)}
+            key={model.id}
+            onPress={() => onChange(model.id)}
             disabled={disabled || locked}
             style={({ hovered }: PressState) => [
               styles.opt,
@@ -43,12 +39,12 @@ export function ProviderPicker({ value, onChange, disabled, models }: ProviderPi
             {/* Selection still wins visually, so the chosen model always reads as
                 chosen; a locked one is greyed and simply cannot be selected. */}
             <Text style={[styles.label, locked && styles.labelLocked, active && styles.labelActive]}>
-              {option.label}
+              {model.label}
             </Text>
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 

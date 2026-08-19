@@ -5,7 +5,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { PressState } from "./src/components/pressState";
@@ -15,9 +15,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { useThreadStore } from "./src/state/threadStore";
 import { colors, fonts } from "./src/theme";
-import { fetchProviders } from "./src/transport/httpClient";
 import { generateId } from "./src/transport/ids";
-import { ProviderStatus } from "./src/transport/types";
 
 type Screen = "chat" | "chats" | "data" | "settings";
 
@@ -30,16 +28,9 @@ const TABS: { key: Screen; label: string }[] = [
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("chat");
-  const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [loaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
   const openChat = useThreadStore((s) => s.open);
   const startNew = useThreadStore((s) => s.startNew);
-
-  const refreshProviders = useCallback(() => {
-    void fetchProviders().then(setProviders);
-  }, []);
-
-  useEffect(refreshProviders, [refreshProviders]);
 
   if (!loaded) {
     return <View style={styles.container} />;

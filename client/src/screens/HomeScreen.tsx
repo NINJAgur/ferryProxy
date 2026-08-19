@@ -14,7 +14,7 @@ import {
 import { CheckState, HandshakePanel } from "../components/HandshakePanel";
 import { MessageBubble } from "../components/MessageBubble";
 import { PendingCard } from "../components/PendingCard";
-import { ProviderPicker } from "../components/ProviderPicker";
+import { ModelPicker } from "../components/ModelPicker";
 import { QueuedList } from "../components/QueuedList";
 import { requestLandingNotification, sendLandedNotification } from "../notify";
 import { enqueue, loadQueue, QueuedMessage } from "../queue/offlineQueue";
@@ -27,7 +27,7 @@ import {
 } from "../state/settingsStore";
 import { PendingSend, ThreadMessage } from "../state/thread";
 import { useThreadStore } from "../state/threadStore";
-import { useSessionStore } from "../state/sessionStore";
+import { pickDefaultModel, useSessionStore } from "../state/sessionStore";
 import { isSignInConfigured } from "../auth/google";
 import { PressState } from "../components/pressState";
 import { colors, fonts } from "../theme";
@@ -35,7 +35,6 @@ import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
 import { sendPrompt } from "../transport/reassembly";
 import { ReassemblyStatus } from "../transport/reassemblyState";
-import { Provider } from "../transport/types";
 
 export function HomeScreen() {
   const sessionId = useRef(generateId()).current;
@@ -43,7 +42,7 @@ export function HomeScreen() {
   const notifyRef = useRef(false);
 
   const [draft, setDraft] = useState("");
-  const [provider, setProvider] = useState<Provider>("gemini");
+  const [modelId, setModelId] = useState<string>("");
   const conversations = useThreadStore((t) => t.conversations);
   const activeId = useThreadStore((t) => t.activeId);
   const appendMessage = useThreadStore((t) => t.append);
@@ -70,11 +69,19 @@ export function HomeScreen() {
   }, [activeId, startNew]);
 
   useEffect(() => {
+    const next = pickDefaultModel(session.models, modelId);
+    if (next && next !== modelId) setModelId(next);
+  }, [modelId, session.models]);
+
+  useEffect(() => {
     void NetInfo.fetch().then((s) => {
       setNetwork(s.isConnected ? "ok" : "failed");
       setOnline(!!s.isConnected);
     });
     void checkHealth().then((ok) => setRelay(ok ? "ok" : "failed"));
+    // Ask what an anonymous caller can use. No token, no account — the free
+    // model is genuinely free, so this must not wait on signing in.
+    void session.loadAnonymous();
     return NetInfo.addEventListener((s) => {
       setOnline(!!s.isConnected);
       setNetwork(s.isConnected ? "ok" : "failed");
@@ -119,7 +126,7 @@ export function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, settings.sendWhenLineAppears]);
 
-  async function attemptSend(id: string, content: string, used: Provider) {
+  async function attemptSend(id: string, content: string, used: string) {
     notifyRef.current = false;
     setPending({ userMessageId: id, startedAt: Date.now(), notifyRequested: false });
     setPendingState({ status: "idle" });
@@ -128,7 +135,7 @@ export function HomeScreen() {
       const result = await sendPrompt(
         {
           prompt: content,
-          provider: used,
+          model: used,
           sessionId,
           brief: settings.answerShortFirst,
           idToken: session.idToken ?? undefined,
@@ -158,7 +165,7 @@ export function HomeScreen() {
           setDismissedSetup(false);
         }
       } else {
-        await enqueue({ id, prompt: content, provider: used });
+        await enqueue({ id, prompt: content, model: used });
         patch(id, { status: "queued" });
         refreshQueue();
       }
@@ -174,12 +181,12 @@ export function HomeScreen() {
     const id = generateId();
 
     if (!online) {
-      await enqueue({ id, prompt: content, provider });
+      await enqueue({ id, prompt: content, model: modelId });
       refreshQueue();
       return;
     }
-    appendMessage({ id, role: "user", content, timestamp: Date.now(), status: "sending", provider });
-    await attemptSend(id, content, provider);
+    appendMessage({ id, role: "user", content, timestamp: Date.now(), status: "sending" });
+    await attemptSend(id, content, modelId);
   }
 
   async function handleNotifyMe() {
@@ -252,13 +259,8 @@ export function HomeScreen() {
         )}
       </View>
 
-      <View style={styles.providerRow}>
-        <ProviderPicker
-          value={provider}
-          onChange={setProvider}
-          disabled={busy}
-          models={session.models}
-        />
+      <View style={styles.modelRow}>
+        <ModelPicker value={modelId} onChange={setModelId} disabled={busy} models={session.models} />
       </View>
 
       <ScrollView style={styles.thread} contentContainerStyle={styles.threadContent}>
@@ -285,7 +287,7 @@ export function HomeScreen() {
             <MessageBubble
               key={m.id}
               message={m}
-              onRetry={m.status === "failed" ? () => attemptSend(m.id, m.content, m.provider ?? provider) : undefined}
+              onRetry={m.status === "failed" ? () => attemptSend(m.id, m.content, modelId) : undefined}
             />
           )
         )}
@@ -337,7 +339,7 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontFamily: fonts.body, fontSize: 12, color: colors.text55 },
-  providerRow: { paddingHorizontal: 18, paddingTop: 14 },
+  modelRow: { paddingHorizontal: 18, paddingTop: 14 },
   thread: { flex: 1 },
   threadContent: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 8 },
   handshakeContent: { paddingBottom: 32 },

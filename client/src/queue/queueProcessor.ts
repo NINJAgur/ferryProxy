@@ -23,7 +23,6 @@ export async function drainQueue(deps: QueueProcessorDeps): Promise<void> {
           {
             prompt: message.prompt,
             history: message.history,
-            provider: message.provider,
             model: message.model,
             maxTokens: message.maxTokens,
             sessionId: deps.sessionId,

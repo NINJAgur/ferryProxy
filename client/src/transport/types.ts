@@ -9,7 +9,6 @@ export interface HistoryMessage {
 export interface ChatRequestPlaintext {
   prompt: string;
   history?: HistoryMessage[];
-  provider?: Provider;
   model?: string;
   maxTokens?: number;
   /** Ask the model for a short answer. Not the same as capping tokens: models that
@@ -54,25 +53,23 @@ export interface ErrorEnvelope {
   message: string;
 }
 
-/** What an account may use. Says nothing about keys — the relay holds those. */
-export interface ModelAccess {
-  name: Provider;
+/** A model the caller may or may not use. Mirrors the relay's catalogue, and
+ *  says nothing about keys — the relay holds those. */
+export interface ModelInfo {
+  id: string;
   label: string;
+  provider: Provider;
+  tier: "free" | "paid";
+  blurb: string;
   unlocked: boolean;
-  reason: "included" | "needs_subscription" | "unavailable";
-  needsSubscription: boolean;
+  reason: "free" | "subscribed" | "needs_subscription" | "unavailable";
 }
 
 export interface SessionInfo {
+  /** Empty for an anonymous caller, who still gets the free model. */
   email: string;
+  signedIn: boolean;
   subscribed: boolean;
-  models: ModelAccess[];
+  models: ModelInfo[];
 }
 
-export interface ProviderStatus {
-  name: Provider;
-  label: string;
-  ready: boolean;
-  requiresKey: boolean;
-  envVar?: string | null;
-}

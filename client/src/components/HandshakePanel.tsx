@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { SessionPhase } from "../state/sessionStore";
 import { colors, fonts } from "../theme";
-import { ModelAccess } from "../transport/types";
+import { ModelInfo } from "../transport/types";
 import { Button } from "./Button";
 import { FadingRule } from "./FadingRule";
 
@@ -15,7 +15,7 @@ interface HandshakePanelProps {
   phase: SessionPhase;
   email: string | null;
   subscribed: boolean;
-  models: ModelAccess[];
+  models: ModelInfo[];
   error: string | null;
   signInAvailable: boolean;
   onSignIn: () => void;
@@ -23,10 +23,13 @@ interface HandshakePanelProps {
   onContinue: () => void;
 }
 
-const REASON_TEXT: Record<ModelAccess["reason"], string> = {
-  included: "included",
-  needs_subscription: "with a subscription",
-  unavailable: "not available right now",
+const REASON_TEXT: Record<ModelInfo["reason"], string> = {
+  free: "Free",
+  subscribed: "Included in Pro",
+  needs_subscription: "Upgrade to Pro",
+  // Deliberately not an upsell: the relay has no key for this model, so selling
+  // it would be selling something that cannot be delivered.
+  unavailable: "Temporarily unavailable",
 };
 
 export function HandshakePanel({
@@ -69,8 +72,8 @@ export function HandshakePanel({
         <FadingRule inset={24} />
         <CheckRow
           state={phase === "ready" ? "ok" : phase === "failed" ? "failed" : "pending"}
-          label={phase === "ready" ? `Signed in as ${email ?? ""}` : "Signed in"}
-          failed="Sign-in didn't complete"
+          label="Found the models you can use"
+          failed="Couldn't work out which models are available"
         />
       </View>
 
@@ -87,7 +90,7 @@ export function HandshakePanel({
         <>
           <Text style={styles.sectionTitle}>Your models</Text>
           {unlocked.map((m) => (
-            <View key={m.name} style={styles.modelRow}>
+            <View key={m.id} style={styles.modelRow}>
               <View style={styles.tick}>
                 <Text style={styles.tickMark}>✓</Text>
               </View>
@@ -96,7 +99,7 @@ export function HandshakePanel({
             </View>
           ))}
           {locked.map((m) => (
-            <View key={m.name} style={styles.modelRow}>
+            <View key={m.id} style={styles.modelRow}>
               <View style={styles.lockCircle} />
               <Text style={[styles.modelName, styles.modelNameLocked]}>{m.label}</Text>
               <Text style={styles.modelNote}>{REASON_TEXT[m.reason]}</Text>
@@ -106,10 +109,10 @@ export function HandshakePanel({
           {!subscribed && locked.some((m) => m.reason === "needs_subscription") ? (
             <View style={styles.upsell}>
               <Text style={styles.upsellText}>
-                Claude and GPT are billed per answer, so they come with a subscription. Gemini stays
-                free either way.
+                The stronger models are billed per answer, so they come with the add-on. Gemini
+                Flash stays free either way.
               </Text>
-              <Button label="Subscribe" onPress={onSubscribe} height={48} fontSize={15} />
+              <Button label="Unlock all models" onPress={onSubscribe} height={48} fontSize={15} />
             </View>
           ) : null}
         </>
@@ -151,14 +154,16 @@ function headline(phase: SessionPhase): string {
 function subtitle(phase: SessionPhase, email: string | null): string {
   switch (phase) {
     case "ready":
-      return `Signed in as ${email ?? "you"}. Ferry holds the model accounts — you never deal with keys.`;
+      return email
+        ? `Signed in as ${email}. Ferry holds the model accounts — you never deal with keys.`
+        : "Ferry holds the model accounts, so there is nothing to set up and no key to manage.";
     case "signing_in":
     case "loading_models":
       return "This takes a moment on a thin line. You can put your phone away.";
     case "failed":
       return "Nothing was lost. Try again when you're ready.";
     default:
-      return "Sign in and Ferry sorts out the models for you.";
+      return "Ferry sorts out the models for you.";
   }
 }
 

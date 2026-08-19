@@ -7,7 +7,7 @@ import {
   reassemblyReducer,
   ReassemblyStatus,
 } from "./reassemblyState";
-import { ChatRequestPlaintext, ChatResponsePlaintext, HistoryMessage, Provider } from "./types";
+import { ChatRequestPlaintext, ChatResponsePlaintext, HistoryMessage } from "./types";
 
 /** Fetching one cached slice is quick; if it hasn't arrived in 8s the line dropped it. */
 export const CHUNK_FETCH_TIMEOUT_MS = 8000;
@@ -25,7 +25,7 @@ export const REASSEMBLY_BUDGET_MS = 180000;
 export interface SendPromptInput {
   prompt: string;
   history?: HistoryMessage[];
-  provider?: Provider;
+  /** The relay's catalogue decides the provider and which service key serves it. */
   model?: string;
   maxTokens?: number;
   brief?: boolean;
@@ -179,7 +179,6 @@ export async function sendPrompt(
   const plaintext: ChatRequestPlaintext = {
     prompt: input.prompt,
     history: input.history,
-    provider: input.provider,
     model: input.model,
     maxTokens: input.maxTokens,
     brief: input.brief,

@@ -65,14 +65,16 @@ export function SettingsScreen() {
             : "Gemini is included free. Claude and GPT are billed per answer, so they come with a subscription."}
         </Text>
         {session.models.map((m) => (
-          <View key={m.name} style={styles.connRow}>
+          <View key={m.id} style={styles.connRow}>
             <Text style={[styles.connLabel, !m.unlocked && styles.connLabelLocked]}>{m.label}</Text>
             <Text style={[styles.connStatus, !m.unlocked && styles.connStatusOff]}>
-              {m.unlocked
-                ? "included"
-                : m.reason === "needs_subscription"
-                  ? "with a subscription"
-                  : "not available"}
+              {m.reason === "free"
+                ? "Free"
+                : m.unlocked
+                  ? "Included in Pro"
+                  : m.reason === "needs_subscription"
+                    ? "Upgrade to Pro"
+                    : "Temporarily unavailable"}
             </Text>
           </View>
         ))}

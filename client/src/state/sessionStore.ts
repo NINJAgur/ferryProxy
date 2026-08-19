@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { signInWithGoogle } from "../auth/google";
 import { fetchSession, setSubscription } from "../transport/httpClient";
-import { ModelAccess } from "../transport/types";
+import { ModelInfo } from "../transport/types";
 
 export type SessionPhase =
   | "signed_out"
@@ -15,13 +15,15 @@ export type SessionPhase =
 interface SessionState {
   phase: SessionPhase;
   email: string | null;
+  signedIn: boolean;
   subscribed: boolean;
-  models: ModelAccess[];
+  models: ModelInfo[];
   error: string | null;
   /** The Google ID token; sent to the relay, never stored anywhere else. */
   idToken: string | null;
 
   signIn: () => Promise<void>;
+  loadAnonymous: () => Promise<void>;
   subscribe: () => Promise<void>;
   signOut: () => void;
 }
@@ -29,6 +31,7 @@ interface SessionState {
 export const useSessionStore = create<SessionState>((set, get) => ({
   phase: "signed_out",
   email: null,
+  signedIn: false,
   subscribed: false,
   models: [],
   error: null,
@@ -45,6 +48,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({
         phase: "ready",
         email: session.email,
+        signedIn: session.signedIn,
+        subscribed: session.subscribed,
+        models: session.models,
+      });
+    } catch (err) {
+      set({ phase: "failed", error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  /** What an anonymous caller can use — asked for on launch, with no token. */
+  loadAnonymous: async () => {
+    set({ phase: "loading_models", error: null });
+    try {
+      const session = await fetchSession();
+      set({
+        phase: "ready",
+        email: null,
+        signedIn: session.signedIn,
         subscribed: session.subscribed,
         models: session.models,
       });
@@ -62,6 +83,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({
         phase: "ready",
         email: session.email,
+        signedIn: session.signedIn,
         subscribed: session.subscribed,
         models: session.models,
       });
@@ -71,9 +93,34 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   signOut: () =>
-    set({ phase: "signed_out", email: null, subscribed: false, models: [], idToken: null, error: null }),
+    set({
+      phase: "signed_out",
+      email: null,
+      signedIn: false,
+      subscribed: false,
+      models: [],
+      idToken: null,
+      error: null,
+    }),
 }));
 
-export function unlockedModels(models: ModelAccess[]): ModelAccess[] {
+export function unlockedModels(models: ModelInfo[]): ModelInfo[] {
   return models.filter((m) => m.unlocked);
+}
+
+/**
+ * Which model the chat should be on.
+ *
+ * Someone who paid should land on what they paid for, so a paid model wins over
+ * the free one. An explicit choice is kept — unless it has since been locked
+ * (subscription lapsed, or the relay lost the key), because leaving it selected
+ * would mean every send is refused.
+ */
+export function pickDefaultModel(models: ModelInfo[], current?: string): string | undefined {
+  const chosen =
+    models.find((m) => m.unlocked && m.tier === "paid") ?? models.find((m) => m.unlocked);
+  if (!chosen) return undefined;
+
+  const currentModel = models.find((m) => m.id === current);
+  return current && currentModel?.unlocked ? current : chosen.id;
 }
