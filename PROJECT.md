@@ -445,36 +445,51 @@ replies rather than quoting a number from a single sample.
 - [x] **10.4** After purchase, show which models are now available and continue to chat
 
 ### Phase 11 — Purchase and entitlement 💳
-- [ ] **11.1** RevenueCat account; one non-consumable product in App Store Connect and
-      Google Play Console
-- [ ] **11.2** `react-native-purchases` in the app, behind a dev build
-- [ ] **11.3** Client sends the RevenueCat/store token with each request
-- [ ] **11.4** Relay validates the receipt server-side before serving a paid model
-- [ ] **11.5** Retire the `POST /v1/dev/entitlement` toggle (`ALLOW_DEV_SUBSCRIPTION=false`)
-- [ ] **11.6** Store listing copy: what the add-on unlocks, the monthly allowance, price
+- [x] **11.2** `react-native-purchases` wired in `purchases.ts`, with a dev-endpoint
+      fallback on web and in Expo Go where the native module does not exist
+- [x] **11.3** Client sends the RevenueCat app user id as the receipt on every request
+- [x] **11.4** Relay validates that receipt server-side before serving a paid model
+- [x] **11.5** `ALLOW_DEV_SUBSCRIPTION` defaults to false; the deployed relay returns
+      403 on `/v1/dev/entitlement`, verified against production
+- [ ] **11.1** RevenueCat account, entitlement named exactly `pro`, and one
+      non-consumable product in App Store Connect — **needs your accounts**
+- [ ] **11.6** `EXPO_PUBLIC_REVENUECAT_IOS_KEY` in the build, `REVENUECAT_API_KEY` on
+      the relay
+- [ ] **11.7** Apple **Paid Applications Agreement**, banking and tax forms. Apple
+      blocks every purchase until accepted, and this is the slowest step
+- [ ] **11.8** Test a sandbox purchase and a restore on a real device. Until then the
+      purchase code is written but unproven — it has never run against a store
 
-### Phase 12 — Fair-use cap 📊
+### Phase 12 — Paying for the free tier 📊
 - [x] **12.1** Usage counter keyed by receipt/purchase id
-- [ ] **12.2** Count **answers per month**; also record token cost per answer so the limit
-      can be re-tuned from real data
-- [x] **12.3** Over the cap → paid models fall back to free Gemini until reset, stated
-      plainly in the UI
+- [x] **12.3** Over the cap → paid models fall back to free Gemini until reset
 - [x] **12.4** Show remaining allowance in Settings
-- [ ] **12.5** Set the limit once per-answer cost is measured
+- [x] **12.6** Free answers metered per device via `X-Device-Id`, falling back to the
+      caller's address so the meter cannot be skipped by omitting the header.
+      `FREE_ANSWER_ALLOWANCE`, 100 a month
+- [x] **12.7** Billing enabled on **ferry-free**; verified 6/6 answers past the old
+      20/day ceiling. Only `gemini_free_model` can reach that key
+- [x] **12.8** Spending cap set in Google Cloud. Confirm it is a **quota cap** under
+      APIs & Services → Quotas, not just a budget alert, which only sends email
+- [ ] **12.2** Record token cost per answer, so the allowance comes from data
+- [ ] **12.5** Set the limit and the add-on price once that cost is known
 
 ### Phase 13 — Deployment 🗄️
-- [x] **13.1** Entitlements kept in a file, not a database — one four-column record
-      does not need SQLAlchemy, Alembic and Postgres
-- [x] **13.2** `ENTITLEMENT_STORE_PATH` so the store can live on a mounted volume;
-      a container filesystem is wiped on every deploy
-- [x] **13.3** `ALLOW_DEV_SUBSCRIPTION` defaults to false — a relay deployed with it
-      on gives the paid models away
+- [x] **13.1** Entitlements kept in a file, not a database
+- [x] **13.2** `ENTITLEMENT_STORE_PATH` so the store can live on a mounted volume
+- [x] **13.3** `ALLOW_DEV_SUBSCRIPTION` defaults to false
 - [x] **13.4** Dockerfile (non-root, one worker) + `.dockerignore`
 - [x] **13.5** `CORS_ALLOW_ORIGINS` configurable
 - [x] **13.6** `client/app.json`: bundle identifier, package, version code
 - [x] **13.7** `client/eas.json` build profiles
 - [x] **13.8** `DEPLOY.md` — relay first, then the app that points at it
-- [ ] **13.9** Deploy the relay and put its HTTPS URL in `eas.json` (needs a host account)
+- [x] **13.9** **Relay is live** at `https://ferryproxy.onrender.com`, verified end to
+      end: health, free answer, paid model refused, dev endpoint 403
+- [ ] **13.11** Render's free instance sleeps (~40s cold start) and has **no disk**, so
+      purchases and usage are lost on every deploy. A paid tier or another host is
+      required before real purchases exist
+- [ ] **13.12** A custom domain. uBlock Origin blocks `*.onrender.com` outright, and
+      DNS filters and corporate networks will too — the users Ferry targets
 - [ ] **13.10** Replace the in-memory chunk cache, or keep the relay pinned to one instance
 
 ### Phase 14 — Outstanding engineering 🔧
@@ -483,14 +498,29 @@ replies rather than quoting a number from a single sample.
       4/5; 40 attempts/1s cap gives 5/5. Constants deliberately left unchanged
 - [ ] **14.2** Test on a physical phone
 - [ ] **14.3** Shared-dictionary compression to beat the ~700 B crossover
-- [ ] **14.4** Delete orphans: `TunnelButton.tsx`, `ProviderSelector.tsx`
+- [ ] **14.4** Delete orphans: `TunnelButton.tsx`, `ProviderSelector.tsx`, and
+      `server/app/db.py` + `models.py` from the abandoned database approach
+
+### Phase 15 — App Store submission 🍎
+- [ ] **15.1** Apple Developer Program, $99/yr — enrolment takes 24–48h
+- [ ] **15.2** Register `com.ninjagur.ferry` and create the App Store Connect record.
+      **The bundle id is permanent after first release** — change it now or never
+- [ ] **15.3** A privacy policy at a public URL, stating that prompts reach the relay
+      and are forwarded to Anthropic, OpenAI and Google
+- [ ] **15.4** Screenshots, description, keywords, support URL, 1024×1024 icon
+- [ ] **15.5** Age rating and a content note — the answers are AI-generated
+- [ ] **15.6** `eas build -p ios --profile production`, then `eas submit`
+- [ ] **15.7** Review notes explaining what Ferry is for; a thin API wrapper draws
+      scrutiny under Guideline 4.2, and the low-bandwidth transport is the answer
 
 ---
 
 ## 6. Next Steps
 
-1. **13.9** — deploy the relay, then put its HTTPS URL in `eas.json`
-2. **Phase 11** — the real purchase: RevenueCat, a store product, a dev build.
-   Until this lands the unlock button does nothing in production
-3. **14.2** — an EAS preview build on a real phone
-4. **12.2 / 12.5** — record per-answer cost, then set the allowance and price from it
+1. **12.7** — enable billing on ferry-free. The app is capped at 20 answers a day
+   across all users until this is done
+2. **12.6** — a free-tier cap, before that key can be drained by anyone
+3. **11.1 / 11.7** — Apple enrolment and the paid-apps agreement. Slowest step, and
+   nothing about the purchase can be tested until it exists
+4. **14.2** — an EAS build on a real phone over mobile data
+5. **13.11 / 13.12** — a host with a disk, and a domain that ad blockers do not eat

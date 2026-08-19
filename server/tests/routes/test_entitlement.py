@@ -211,3 +211,105 @@ def test_the_free_model_still_answers_once_the_allowance_is_spent(client, monkey
 def test_an_entitlement_never_carries_a_key(client):
     buy(client)
     assert "svc-" not in client.post("/v1/entitlement", headers=HEADERS).text
+
+
+def test_each_model_bills_only_its_own_project(client, monkeypatch):
+    """The free Gemini key must be unreachable from anything but the free model.
+
+    Both Gemini models come from one provider, so a tier mistake here would put
+    Gemini Pro traffic on the free project's bill — or the reverse — and nothing
+    in the request would look wrong.
+    """
+    buy(client)
+    seen = {}
+
+    class Recording:
+        def __init__(self, name):
+            self.name = name
+
+        async def generate(self, prompt, history, model, max_tokens, api_key=None):
+            seen[model] = api_key
+            return LLMResult(content="ok", model=model, stop_reason="end_turn")
+
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: Recording(name))
+
+    for model in [FREE_MODEL, cat.settings.gemini_paid_model, cat.settings.openai_model, PAID_MODEL]:
+        client.post(
+            "/v1/chat", json=build_envelope({"prompt": "hi", "model": model}), headers=HEADERS
+        )
+
+    assert seen == {
+        FREE_MODEL: "svc-gemini-free",
+        cat.settings.gemini_paid_model: "svc-gemini-paid",
+        cat.settings.openai_model: "svc-openai",
+        PAID_MODEL: "svc-anthropic",
+    }
+
+
+def test_a_free_device_gets_a_months_answers_and_no_more(client, monkeypatch):
+    """The free model is cheap, not free, so an anonymous device is metered too."""
+    monkeypatch.setattr(chat_module.settings, "free_answer_allowance", 2)
+    monkeypatch.setattr(ent_module.settings, "free_answer_allowance", 2)
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+    device = {"X-Device-Id": "device-a"}
+
+    for _ in range(2):
+        ok = client.post(
+            "/v1/chat", json=build_envelope({"prompt": "hi", "model": FREE_MODEL}), headers=device
+        )
+        assert ok.status_code == 200
+
+    spent = client.post(
+        "/v1/chat", json=build_envelope({"prompt": "hi", "model": FREE_MODEL}), headers=device
+    )
+    assert spent.status_code == 429
+    assert spent.json()["error"] == "free_allowance_spent"
+
+
+def test_one_device_running_out_does_not_stop_another(client, monkeypatch):
+    monkeypatch.setattr(chat_module.settings, "free_answer_allowance", 1)
+    monkeypatch.setattr(ent_module.settings, "free_answer_allowance", 1)
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+
+    for _ in range(2):
+        client.post(
+            "/v1/chat",
+            json=build_envelope({"prompt": "hi", "model": FREE_MODEL}),
+            headers={"X-Device-Id": "heavy"},
+        )
+
+    fresh = client.post(
+        "/v1/chat",
+        json=build_envelope({"prompt": "hi", "model": FREE_MODEL}),
+        headers={"X-Device-Id": "quiet"},
+    )
+    assert fresh.status_code == 200
+
+
+def test_a_free_meter_never_becomes_an_entitlement(client, monkeypatch):
+    """Counting a free device must not hand it the paid models."""
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+    client.post(
+        "/v1/chat",
+        json=build_envelope({"prompt": "hi", "model": FREE_MODEL}),
+        headers={"X-Device-Id": "device-b"},
+    )
+
+    # The meter is keyed "free:<id>"; presenting that key as a receipt must not unlock.
+    body = client.post("/v1/entitlement", headers={"X-Store-Receipt": "free:device-b"}).json()
+    assert body["unlocked"] is False
+
+
+def test_a_buyer_is_not_charged_against_the_free_meter(client, monkeypatch):
+    buy(client)
+    monkeypatch.setattr(chat_module.settings, "free_answer_allowance", 0)
+    monkeypatch.setattr(ent_module.settings, "free_answer_allowance", 0)
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+
+    # Someone who paid still reaches the free model even with the free meter spent.
+    response = client.post(
+        "/v1/chat",
+        json=build_envelope({"prompt": "hi", "model": FREE_MODEL}),
+        headers={**HEADERS, "X-Device-Id": "buyer-device"},
+    )
+    assert response.status_code == 200

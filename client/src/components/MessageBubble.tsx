@@ -57,10 +57,15 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
 
       {failed ? (
         <View style={styles.explainCard}>
-          <Text style={styles.explainTitle}>The connection dropped mid-sentence.</Text>
+          {/* Only a transport failure is a dropped line. Saying so about a refusal
+              from the relay sends someone to check their signal for no reason. */}
+          <Text style={styles.explainTitle}>
+            {message.failReason ?? "The connection dropped mid-sentence."}
+          </Text>
           <Text style={styles.explainBody}>
-            Nothing is lost. Ferry picks up where it stopped rather than starting over, so a retry costs
-            seconds, not minutes.
+            {message.failReason
+              ? "Retrying costs seconds — nothing you wrote is lost."
+              : "Nothing is lost. Ferry picks up where it stopped rather than starting over, so a retry costs seconds, not minutes."}
           </Text>
         </View>
       ) : null}

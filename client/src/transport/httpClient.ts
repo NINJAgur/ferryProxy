@@ -1,3 +1,4 @@
+import { deviceId } from "./deviceId";
 import {
   ChatRequestEnvelope,
   ChatResponseEnvelope,
@@ -10,9 +11,13 @@ export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://127.0.0.1:800
 
 /** The store receipt travels here. No receipt is the free tier, not an error. */
 export const RECEIPT_HEADER = "X-Store-Receipt";
+/** Which install this is, so free answers can be metered without an account. */
+export const DEVICE_HEADER = "X-Device-Id";
 
-function receiptHeaders(receipt?: string): Record<string, string> {
-  return receipt ? { [RECEIPT_HEADER]: receipt } : {};
+async function callerHeaders(receipt?: string): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { [DEVICE_HEADER]: await deviceId() };
+  if (receipt) headers[RECEIPT_HEADER] = receipt;
+  return headers;
 }
 
 /**
@@ -47,7 +52,7 @@ export async function fetchEntitlement(
     try {
       const response = await fetchWithTimeout(
         `${BASE_URL}/v1/entitlement`,
-        { method: "POST", headers: receiptHeaders(receipt) },
+        { method: "POST", headers: await callerHeaders(receipt) },
         timeoutMs
       );
       if (response.ok) return response.json();
@@ -104,7 +109,7 @@ export async function postChat(
   // use and supplies its own provider key. No API key ever reaches the device.
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...receiptHeaders(receipt),
+    ...(await callerHeaders(receipt)),
   };
   const response = await fetchWithTimeout(
     `${BASE_URL}/v1/chat`,

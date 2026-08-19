@@ -1,13 +1,20 @@
 import React from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { computeBrevityComparison, computeSessionTotals, useMetricsStore } from "../state/metricsStore";
+import {
+  averageAnswerBytes,
+  computeBrevityComparison,
+  computeSessionTotals,
+  useMetricsStore,
+} from "../state/metricsStore";
 import { colors, fonts } from "../theme";
 
 export function HistoryScreen() {
   const messages = useMetricsStore((s) => s.messages);
   const totals = computeSessionTotals(messages);
   const brevity = computeBrevityComparison(messages);
+  const averageAnswer = averageAnswerBytes(messages);
+  const allBrief = messages.length > 0 && messages.every((m) => m.brief);
   const wireSaved = totals.rawBytes > 0 ? (1 - totals.compressionRatio) * 100 : 0;
 
   return (
@@ -31,12 +38,25 @@ export function HistoryScreen() {
               {brevity.fullCount} replies).
             </Text>
           </>
+        ) : averageAnswer !== null ? (
+          <>
+            {/* No full-length answer has arrived, so there is nothing to compare
+                against — how long an answer *would* have been is not something the
+                app can know. Show the size that was actually measured instead of
+                an empty card and a chore. */}
+            <Text style={styles.big}>{Math.round(averageAnswer)} B per answer</Text>
+            <Text style={styles.cardNote}>
+              Averaged over {messages.length} repl{messages.length === 1 ? "y" : "ies"}
+              {allBrief ? ", all asked short" : ""}. A full-length answer usually runs several times
+              that — Ferry will put the real difference here if it ever sees one.
+            </Text>
+          </>
         ) : (
           <>
-            <Text style={styles.bigMuted}>Not measured yet</Text>
+            <Text style={styles.bigMuted}>Nothing sent yet</Text>
             <Text style={styles.cardNote}>
-              Send one answer with “Answer short first” on and one with it off, and the difference
-              gets measured here from your own replies rather than assumed.
+              Ask something and Ferry measures what it carried, from your own replies rather than
+              assumed.
             </Text>
           </>
         )}

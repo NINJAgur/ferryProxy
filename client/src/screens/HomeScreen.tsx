@@ -28,13 +28,29 @@ import {
 import { PendingSend, ThreadMessage } from "../state/thread";
 import { useThreadStore } from "../state/threadStore";
 import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore";
-import { buyAddOn, restorePurchases } from "../purchases";
+import { buyAddOn, initPurchases, restorePurchases } from "../purchases";
 import { PressState } from "../components/pressState";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
 import { sendPrompt } from "../transport/reassembly";
 import { ReassemblyStatus } from "../transport/reassemblyState";
+
+/**
+ * What survives leaving the Chat tab.
+ *
+ * The tab bar unmounts this screen, so anything held in component state is lost
+ * the moment someone looks at Settings — which put the opening screen back in
+ * their way every time they returned, and re-ran the startup checks over a line
+ * that may barely work. Module scope lasts exactly as long as the app is open,
+ * which is the intended lifetime: gone on reload, kept while you use it.
+ */
+const launch = {
+  setupDismissed: false,
+  checksRun: false,
+  network: "pending" as CheckState,
+  relay: "pending" as CheckState,
+};
 
 export function HomeScreen() {
   const sessionId = useRef(generateId()).current;
@@ -53,15 +69,28 @@ export function HomeScreen() {
   const [pendingState, setPendingState] = useState<ReassemblyStatus>({ status: "idle" });
   const [queued, setQueued] = useState<QueuedMessage[]>([]);
   const [online, setOnline] = useState(true);
-  const [network, setNetwork] = useState<CheckState>("pending");
-  const [relay, setRelay] = useState<CheckState>("pending");
-  const [dismissedSetup, setDismissedSetup] = useState(false);
+  const [network, setNetworkState] = useState<CheckState>(launch.network);
+  const [relay, setRelayState] = useState<CheckState>(launch.relay);
+  const [dismissedSetup, setDismissedSetup] = useState(launch.setupDismissed);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const addMetric = useMetricsStore((s) => s.addMessage);
   const entitlement = useEntitlementStore();
   const settings = useSettingsStore();
+
+  const setNetwork = (s: CheckState) => {
+    launch.network = s;
+    setNetworkState(s);
+  };
+  const setRelay = (s: CheckState) => {
+    launch.relay = s;
+    setRelayState(s);
+  };
+  const dismissSetup = () => {
+    launch.setupDismissed = true;
+    setDismissedSetup(true);
+  };
 
   const refreshQueue = () => void loadQueue().then(setQueued);
   const patch = patchMessage;
@@ -76,14 +105,25 @@ export function HomeScreen() {
   }, [modelId, entitlement.models]);
 
   useEffect(() => {
-    void NetInfo.fetch().then((s) => {
-      setNetwork(s.isConnected ? "ok" : "failed");
-      setOnline(!!s.isConnected);
-    });
-    void checkHealth().then((ok) => setRelay(ok ? "ok" : "failed"));
-    // Ask what this device can use before anything is bought. The free model is
-    // genuinely free, so this must not wait on a purchase or an account.
-    void entitlement.load();
+    // The startup checks run once per app launch, not once per visit to this tab:
+    // asking the relay again every time someone glances at Settings is a request
+    // the line may not be able to spare.
+    if (!launch.checksRun) {
+      launch.checksRun = true;
+      void NetInfo.fetch().then((s) => {
+        setNetwork(s.isConnected ? "ok" : "failed");
+        setOnline(!!s.isConnected);
+      });
+      void checkHealth().then((ok) => setRelay(ok ? "ok" : "failed"));
+      // Ask what this device can use. Someone who already bought the add-on, here or
+      // on an old phone, should arrive unlocked without pressing anything — but a
+      // free install must not wait on the store, because the free model owes it nothing.
+      void initPurchases().then((receipt) => entitlement.load(receipt ?? undefined));
+    }
+
+    // Always resubscribed, unlike the checks: this screen remounts on every tab
+    // switch, and a stale mount's listener dies with it. Skipping it would leave
+    // the app unable to notice the line coming back.
     return NetInfo.addEventListener((s) => {
       setOnline(!!s.isConnected);
       setNetwork(s.isConnected ? "ok" : "failed");
@@ -160,11 +200,11 @@ export function HomeScreen() {
       if (err instanceof HttpError) {
         patch(id, { status: "failed", failReason: err.message });
         // 403 model not unlocked, 429 allowance spent, 503 no key on the relay:
-        // the entitlement is the problem, not the line, so re-read it and go back
-        // to setup where what changed can actually be shown.
+        // what this device may use has changed, so re-read it and let the picker
+        // reflect that. The chat stays put — yanking someone back to the opening
+        // screen loses their place to tell them something the message already says.
         if ([403, 429, 503].includes(err.status)) {
           void entitlement.load();
-          setDismissedSetup(false);
         }
       } else {
         await enqueue({ id, prompt: content, model: used });
@@ -217,9 +257,11 @@ export function HomeScreen() {
   const busy = !!pending;
   const offlineMode = !online || queued.length > 0;
 
-  // Setup owns the screen until the entitlement is known. Rendering the chat first
-  // and swapping to setup a moment later is the flash that made this feel broken.
-  const setupDone = entitlement.phase === "ready" && dismissedSetup;
+  // Setup owns the screen until it is dismissed, and then never takes it back.
+  // Tying this to the entitlement phase meant every refresh of it — after a
+  // refused send, say — threw the user back to the opening screen mid-conversation.
+  // Dismissal is only reachable from the ready state, so this cannot skip setup.
+  const setupDone = dismissedSetup;
 
   if (!setupDone) {
     return (
@@ -238,7 +280,7 @@ export function HomeScreen() {
           }
           onRetry={() => void entitlement.load()}
           onContinue={() => {
-            setDismissedSetup(true);
+            dismissSetup();
             setTimeout(() => inputRef.current?.focus(), 50);
           }}
         />

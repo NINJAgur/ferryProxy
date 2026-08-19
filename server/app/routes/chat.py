@@ -7,7 +7,14 @@ from fastapi.responses import JSONResponse
 from app.catalogue import default_model, find, is_allowed, resolve_key
 from app.config import settings
 from app.entitlement import entitlement_store
-from app.routes.entitlement import RECEIPT_HEADER, has_allowance, resolve_entitlement
+from app.routes.entitlement import (
+    DEVICE_HEADER,
+    RECEIPT_HEADER,
+    has_allowance,
+    has_free_allowance,
+    record_free_answer,
+    resolve_entitlement,
+)
 from app.llm.base import LLMConfigError, LLMProviderError
 from app.llm.registry import get_provider
 from app.protocol.checksum import sha256_hex
@@ -40,6 +47,7 @@ async def chat(
     envelope: ChatRequestEnvelope,
     request: Request,
     receipt: str = Header(default="", alias=RECEIPT_HEADER),
+    device_id: str = Header(default="", alias=DEVICE_HEADER),
 ) -> JSONResponse:
     try:
         decompressed = decode_payload(envelope.algorithm, envelope.payload)
@@ -72,6 +80,18 @@ async def chat(
     api_key = resolve_key(model_entry)
     if not api_key:
         return _error(503, "provider_not_configured", f"{model_entry.label} is not configured on the relay")
+
+    # A free answer is cheap, not free. Meter it per device, falling back to the
+    # caller's address when no device id was sent, so the meter cannot be skipped
+    # by simply omitting the header.
+    metered_as = device_id or (request.client.host if request.client else "unknown")
+    free_answer = model_entry.tier == "free"
+    if free_answer and entry is None and not has_free_allowance(metered_as):
+        return _error(
+            429,
+            "free_allowance_spent",
+            "This device has used its free answers for the month",
+        )
 
     if not is_allowed(model_id, subscribed):
         if entry is not None and not within_allowance:
@@ -106,6 +126,8 @@ async def chat(
     # allowance the caller paid for.
     if entry is not None and model_entry.tier == "paid":
         entitlement_store.record_answer(entry.receipt_id)
+    elif free_answer and entry is None:
+        record_free_answer(metered_as)
 
     response_plaintext = ChatResponsePlaintext(
         content=result.content,

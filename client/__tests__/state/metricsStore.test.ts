@@ -1,4 +1,8 @@
-import { computeSessionTotals, MessageMetrics } from "../../src/state/metricsStore";
+import {
+  averageAnswerBytes,
+  computeSessionTotals,
+  MessageMetrics,
+} from "../../src/state/metricsStore";
 
 function makeMessage(overrides: Partial<MessageMetrics> = {}): MessageMetrics {
   return {
@@ -37,5 +41,24 @@ describe("computeSessionTotals", () => {
     expect(totals.totalChunks).toBe(4);
     expect(totals.chunkRetries).toBe(2);
     expect(totals.compressionRatio).toBeCloseTo(totals.compressedBytes / totals.rawBytes);
+  });
+});
+
+describe("averageAnswerBytes", () => {
+  it("has nothing to report before anything has arrived", () => {
+    // The card falls back to this, so null has to mean "no data" and not zero —
+    // "0 B per answer" would be a measurement, and a wrong one.
+    expect(averageAnswerBytes([])).toBeNull();
+  });
+
+  it("averages the answers it has, brief or not", () => {
+    const messages = [
+      makeMessage({ id: "a", brief: true, rawResponseBytes: 300 }),
+      makeMessage({ id: "b", brief: true, rawResponseBytes: 500 }),
+    ];
+
+    // Available even when every answer was asked short, which is the case the
+    // brevity comparison can never report on.
+    expect(averageAnswerBytes(messages)).toBe(400);
   });
 });

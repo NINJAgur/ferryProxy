@@ -39,6 +39,35 @@ def has_allowance(entry: Optional[Entitlement]) -> bool:
     return entry.answers_used < settings.monthly_answer_allowance
 
 
+# A free install is metered too. The device id is not an identity and a reinstall
+# resets it — this is a ceiling on ordinary use, not a defence against someone
+# determined. The provider's own quota cap is what stops a real bill.
+DEVICE_HEADER = "X-Device-Id"
+_FREE_PREFIX = "free:"
+
+
+def free_key(device_id: str) -> str:
+    return f"{_FREE_PREFIX}{device_id}"
+
+
+def free_answers_used(device_id: str) -> int:
+    entry = entitlement_store.get(free_key(device_id))
+    return entry.answers_used if entry else 0
+
+
+def has_free_allowance(device_id: str) -> bool:
+    return free_answers_used(device_id) < settings.free_answer_allowance
+
+
+def record_free_answer(device_id: str) -> None:
+    key = free_key(device_id)
+    if entitlement_store.get(key) is None:
+        # Never unlocked: this row counts what a free device used, and must not
+        # become something that grants access.
+        entitlement_store.grant(key, unlocked=False)
+    entitlement_store.record_answer(key)
+
+
 def entitlement_body(entry: Optional[Entitlement]) -> dict:
     """What the caller may use, and how much of the allowance is left.
 

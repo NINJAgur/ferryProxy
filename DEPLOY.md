@@ -70,10 +70,16 @@ build against a real store product.
 
 ## 4. Before a store submission
 
-- **The purchase is not implemented.** `client/src/purchases.ts` talks to the
-  relay's dev endpoint, not to a store. Shipping as-is means the unlock button
-  does nothing in production, because `ALLOW_DEV_SUBSCRIPTION` is false there.
-  Phase 11 wires RevenueCat and a real non-consumable product.
+- **The purchase is wired but unproven.** `client/src/purchases.ts` uses
+  RevenueCat on a real build, and falls back to the relay's dev endpoint on web
+  and in Expo Go, where the native module does not exist. It cannot work until
+  all of these are true, and none of them can be tested from a dev machine:
+  - An App Store Connect **non-consumable** product exists, with a price.
+  - RevenueCat has an entitlement called exactly `pro`, attached to that product.
+  - `EXPO_PUBLIC_REVENUECAT_IOS_KEY` is set for the build, and
+    `REVENUECAT_API_KEY` (the secret key) is set on the relay.
+  - Apple's **Paid Applications Agreement**, banking and tax forms are accepted.
+    Apple blocks every purchase until they are, and this is the slowest step.
 - Restore Purchases must work — both stores require it, and it is what removes the
   need for user accounts.
 - A privacy policy URL is required by both stores. Ferry sends prompts to the

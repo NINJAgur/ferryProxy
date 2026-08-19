@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # One purchase must not buy unbounded API spend. Over this, paid models fall
     # back to the free one until the month turns over.
     monthly_answer_allowance: int = 300
+    # Neither may a free install. The free model is cheap, not free, so an
+    # anonymous device gets a month's worth of answers and no more.
+    free_answer_allowance: int = 100
 
     default_llm_provider: str = "anthropic"
     llm_max_tokens: int = 2048

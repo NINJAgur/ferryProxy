@@ -45,6 +45,15 @@ export interface BrevityComparison {
   saved: number;
 }
 
+/** The average answer size, whatever kind of answers these are.
+ *
+ *  Always available once anything has arrived, unlike the brevity comparison,
+ *  which needs a full-length answer it may never see. */
+export function averageAnswerBytes(messages: MessageMetrics[]): number | null {
+  if (messages.length === 0) return null;
+  return messages.reduce((a, m) => a + m.rawResponseBytes, 0) / messages.length;
+}
+
 /** What brevity is worth, measured from this device's own answers rather than
  *  assumed. Returns null until there is at least one of each to compare, because
  *  a saving quoted from one sample would be a guess dressed up as a number. */
