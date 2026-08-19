@@ -1,7 +1,7 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { SessionPhase } from "../state/sessionStore";
+import { EntitlementPhase } from "../state/entitlementStore";
 import { colors, fonts } from "../theme";
 import { ModelInfo } from "../transport/types";
 import { Button } from "./Button";
@@ -12,14 +12,14 @@ export type CheckState = "pending" | "ok" | "failed";
 interface HandshakePanelProps {
   network: CheckState;
   relay: CheckState;
-  phase: SessionPhase;
-  email: string | null;
-  subscribed: boolean;
+  phase: EntitlementPhase;
+  unlocked: boolean;
   models: ModelInfo[];
   error: string | null;
-  signInAvailable: boolean;
-  onSignIn: () => void;
-  onSubscribe: () => void;
+  busy: boolean;
+  onUnlock: () => void;
+  onRestore: () => void;
+  onRetry: () => void;
   onContinue: () => void;
 }
 
@@ -36,16 +36,16 @@ export function HandshakePanel({
   network,
   relay,
   phase,
-  email,
-  subscribed,
+  unlocked: purchased,
   models,
   error,
-  signInAvailable,
-  onSignIn,
-  onSubscribe,
+  busy,
+  onUnlock,
+  onRestore,
+  onRetry,
   onContinue,
 }: HandshakePanelProps) {
-  const busy = phase === "signing_in" || phase === "loading_models";
+  const working = busy || phase === "loading";
   const unlocked = models.filter((m) => m.unlocked);
   const locked = models.filter((m) => !m.unlocked);
 
@@ -53,7 +53,7 @@ export function HandshakePanel({
     <View style={styles.container}>
       <Text style={styles.brand}>FERRY</Text>
       <Text style={styles.headline}>{headline(phase)}</Text>
-      <Text style={styles.subtitle}>{subtitle(phase, email)}</Text>
+      <Text style={styles.subtitle}>{subtitle(phase, purchased)}</Text>
 
       {/* Every row is a real check with a real failure state — an unfinished
           check and a failed one must not look the same. */}
@@ -77,12 +77,10 @@ export function HandshakePanel({
         />
       </View>
 
-      {busy ? (
+      {working ? (
         <View style={styles.busyRow}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={styles.busyText}>
-            {phase === "signing_in" ? "Waiting for Google…" : "Working out which models you can use…"}
-          </Text>
+          <Text style={styles.busyText}>Working out which models you can use…</Text>
         </View>
       ) : null}
 
@@ -106,13 +104,31 @@ export function HandshakePanel({
             </View>
           ))}
 
-          {!subscribed && locked.some((m) => m.reason === "needs_subscription") ? (
+          {!purchased && locked.some((m) => m.reason === "needs_subscription") ? (
             <View style={styles.upsell}>
               <Text style={styles.upsellText}>
-                The stronger models are billed per answer, so they come with the add-on. Gemini
-                Flash stays free either way.
+                The stronger models are billed per answer, so they come with a one-off purchase.
+                Gemini Flash stays free either way.
               </Text>
-              <Button label="Unlock all models" onPress={onSubscribe} height={48} fontSize={15} />
+              <Button
+                label="Unlock all models"
+                onPress={onUnlock}
+                disabled={working}
+                height={48}
+                fontSize={15}
+              />
+              <Button
+                label="Restore purchases"
+                onPress={onRestore}
+                disabled={working}
+                variant="ghost"
+                height={44}
+                fontSize={14}
+              />
+              <Text style={styles.configNote}>
+                Bought it already, or on a new phone? Restore brings it back — the store keeps the
+                record, so there is no account to sign into.
+              </Text>
             </View>
           ) : null}
         </>
@@ -127,38 +143,31 @@ export function HandshakePanel({
           <Button label="Continue to chat" onPress={onContinue} height={48} fontSize={15} />
         ) : (
           <Button
-            label={phase === "failed" ? "Try signing in again" : "Sign in with Google"}
-            onPress={onSignIn}
-            disabled={busy || !signInAvailable}
+            label="Try again"
+            onPress={onRetry}
+            disabled={working}
             height={48}
             fontSize={15}
           />
         )}
-        {!signInAvailable && phase !== "ready" ? (
-          <Text style={styles.configNote}>
-            Sign-in isn't configured yet: add EXPO_PUBLIC_GOOGLE_CLIENT_ID to client/.env and
-            GOOGLE_CLIENT_ID to server/.env.
-          </Text>
-        ) : null}
       </View>
     </View>
   );
 }
 
-function headline(phase: SessionPhase): string {
+function headline(phase: EntitlementPhase): string {
   if (phase === "ready") return "You're on.";
   if (phase === "failed") return "That didn't go through.";
   return "Finding you a line out.";
 }
 
-function subtitle(phase: SessionPhase, email: string | null): string {
+function subtitle(phase: EntitlementPhase, purchased: boolean): string {
   switch (phase) {
     case "ready":
-      return email
-        ? `Signed in as ${email}. Ferry holds the model accounts — you never deal with keys.`
-        : "Ferry holds the model accounts, so there is nothing to set up and no key to manage.";
-    case "signing_in":
-    case "loading_models":
+      return purchased
+        ? "Every model is unlocked. Ferry sends only what a thin line can carry, and picks the answer back up when it drops."
+        : "Ferry carries questions and answers over a line too weak for a normal app — a bar of signal, a bad hotel wifi, an airport queue.";
+    case "loading":
       return "This takes a moment on a thin line. You can put your phone away.";
     case "failed":
       return "Nothing was lost. Try again when you're ready.";

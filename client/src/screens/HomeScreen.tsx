@@ -27,8 +27,8 @@ import {
 } from "../state/settingsStore";
 import { PendingSend, ThreadMessage } from "../state/thread";
 import { useThreadStore } from "../state/threadStore";
-import { pickDefaultModel, useSessionStore } from "../state/sessionStore";
-import { isSignInConfigured } from "../auth/google";
+import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore";
+import { buyAddOn, restorePurchases } from "../purchases";
 import { PressState } from "../components/pressState";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
@@ -56,9 +56,11 @@ export function HomeScreen() {
   const [network, setNetwork] = useState<CheckState>("pending");
   const [relay, setRelay] = useState<CheckState>("pending");
   const [dismissedSetup, setDismissedSetup] = useState(false);
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const addMetric = useMetricsStore((s) => s.addMessage);
-  const session = useSessionStore();
+  const entitlement = useEntitlementStore();
   const settings = useSettingsStore();
 
   const refreshQueue = () => void loadQueue().then(setQueued);
@@ -69,9 +71,9 @@ export function HomeScreen() {
   }, [activeId, startNew]);
 
   useEffect(() => {
-    const next = pickDefaultModel(session.models, modelId);
+    const next = pickDefaultModel(entitlement.models, modelId);
     if (next && next !== modelId) setModelId(next);
-  }, [modelId, session.models]);
+  }, [modelId, entitlement.models]);
 
   useEffect(() => {
     void NetInfo.fetch().then((s) => {
@@ -79,9 +81,9 @@ export function HomeScreen() {
       setOnline(!!s.isConnected);
     });
     void checkHealth().then((ok) => setRelay(ok ? "ok" : "failed"));
-    // Ask what an anonymous caller can use. No token, no account — the free
-    // model is genuinely free, so this must not wait on signing in.
-    void session.loadAnonymous();
+    // Ask what this device can use before anything is bought. The free model is
+    // genuinely free, so this must not wait on a purchase or an account.
+    void entitlement.load();
     return NetInfo.addEventListener((s) => {
       setOnline(!!s.isConnected);
       setNetwork(s.isConnected ? "ok" : "failed");
@@ -138,7 +140,7 @@ export function HomeScreen() {
           model: used,
           sessionId,
           brief: settings.answerShortFirst,
-          idToken: session.idToken ?? undefined,
+          receipt: entitlement.receipt ?? undefined,
         },
         setPendingState
       );
@@ -157,11 +159,11 @@ export function HomeScreen() {
     } catch (err) {
       if (err instanceof HttpError) {
         patch(id, { status: "failed", failReason: err.message });
-        // 503 no key, 401/403 rejected, 429 out of quota: the credential is the
-        // problem, not the line, so show what is actually broken.
-        // 401 identity rejected, 403 model not on this account, 429 out of quota:
-        // the account is the problem, not the line, so go back to setup.
-        if ([401, 403, 429, 503].includes(err.status)) {
+        // 403 model not unlocked, 429 allowance spent, 503 no key on the relay:
+        // the entitlement is the problem, not the line, so re-read it and go back
+        // to setup where what changed can actually be shown.
+        if ([403, 429, 503].includes(err.status)) {
+          void entitlement.load();
           setDismissedSetup(false);
         }
       } else {
@@ -196,13 +198,28 @@ export function HomeScreen() {
     }
   }
 
+  async function runPurchase(
+    step: () => Promise<{ receipt: string | null; error?: string }>,
+    nothingHappened: string
+  ) {
+    setPurchaseBusy(true);
+    setPurchaseError(null);
+    const result = await step();
+    // The relay decides what a receipt is worth, so reload rather than trusting
+    // the store's answer — a restore that finds nothing must stay locked. Which
+    // means the reload, not the receipt, is what says whether anything changed.
+    if (result.receipt) await entitlement.load(result.receipt);
+    if (result.error) setPurchaseError(result.error);
+    else if (!useEntitlementStore.getState().unlocked) setPurchaseError(nothingHappened);
+    setPurchaseBusy(false);
+  }
+
   const busy = !!pending;
   const offlineMode = !online || queued.length > 0;
 
-  // Setup owns the screen until an account is ready. Rendering the chat first and
-  // swapping to setup a moment later is the flash that made this feel broken.
-  const setupDone = session.phase === "ready" && dismissedSetup;
-  const unlocked = session.models.filter((m) => m.unlocked);
+  // Setup owns the screen until the entitlement is known. Rendering the chat first
+  // and swapping to setup a moment later is the flash that made this feel broken.
+  const setupDone = entitlement.phase === "ready" && dismissedSetup;
 
   if (!setupDone) {
     return (
@@ -210,14 +227,16 @@ export function HomeScreen() {
         <HandshakePanel
           network={network}
           relay={relay}
-          phase={session.phase}
-          email={session.email}
-          subscribed={session.subscribed}
-          models={session.models}
-          error={session.error}
-          signInAvailable={isSignInConfigured()}
-          onSignIn={() => void session.signIn()}
-          onSubscribe={() => void session.subscribe()}
+          phase={entitlement.phase}
+          unlocked={entitlement.unlocked}
+          models={entitlement.models}
+          error={entitlement.error ?? purchaseError}
+          busy={purchaseBusy}
+          onUnlock={() => void runPurchase(buyAddOn, "That didn't go through. Nothing was charged.")}
+          onRestore={() =>
+            void runPurchase(restorePurchases, "No purchase found for this device.")
+          }
+          onRetry={() => void entitlement.load()}
           onContinue={() => {
             setDismissedSetup(true);
             setTimeout(() => inputRef.current?.focus(), 50);
@@ -260,7 +279,7 @@ export function HomeScreen() {
       </View>
 
       <View style={styles.modelRow}>
-        <ModelPicker value={modelId} onChange={setModelId} disabled={busy} models={session.models} />
+        <ModelPicker value={modelId} onChange={setModelId} disabled={busy} models={entitlement.models} />
       </View>
 
       <ScrollView style={styles.thread} contentContainerStyle={styles.threadContent}>

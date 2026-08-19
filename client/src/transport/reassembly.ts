@@ -29,7 +29,8 @@ export interface SendPromptInput {
   model?: string;
   maxTokens?: number;
   brief?: boolean;
-  idToken?: string;
+  /** Proof of purchase, when there is one. Without it the relay serves the free tier. */
+  receipt?: string;
   sessionId: string;
 }
 
@@ -204,7 +205,7 @@ export async function sendPrompt(
       startTime,
       rawPromptBytes,
       compressedBytesSent,
-      input.idToken,
+      input.receipt,
       !!input.brief
     ),
     REASSEMBLY_BUDGET_MS,
@@ -218,7 +219,7 @@ async function runRequest(
   startTime: number,
   rawPromptBytes: number,
   compressedBytesSent: number,
-  idToken?: string,
+  receipt?: string,
   brief = false
 ): Promise<SendPromptResult> {
   let responseEnvelope: Awaited<ReturnType<typeof postChat>> | undefined;
@@ -226,7 +227,7 @@ async function runRequest(
 
   for (let attempt = 0; attempt < CHUNK_RETRY_MAX_ATTEMPTS; attempt++) {
     try {
-      responseEnvelope = await postChat(envelope, SEND_TIMEOUT_MS, idToken);
+      responseEnvelope = await postChat(envelope, SEND_TIMEOUT_MS, receipt);
       break;
     } catch (err) {
       lastError = err;

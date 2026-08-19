@@ -217,9 +217,13 @@ proxyAI/                                 ← monorepo root
 │   │   │   ├── chunker.py               ← split / reassemble
 │   │   │   └── checksum.py              ← sha256[:16]
 │   │   ├── cache/response_cache.py      ← in-memory TTL cache of chunks
+│   │   ├── catalogue.py                 ← model → tier → which service key
+│   │   ├── entitlement.py               ← purchases + this month's usage
+│   │   ├── receipts.py                  ← verifies a store receipt
 │   │   └── routes/
 │   │       ├── chat.py                  ← POST /v1/chat  (+ store receipt)
 │   │       ├── chunks.py                ← GET  /v1/chat/{r}/chunks/{i}
+│   │       ├── entitlement.py           ← POST /v1/entitlement
 │   │       └── providers.py             ← GET  /v1/providers
 │   ├── scripts/
 │   │   ├── simulate_loss.py             ← drops/delays requests on purpose
@@ -232,25 +236,26 @@ proxyAI/                                 ← monorepo root
     ├── src/
     │   ├── theme.ts                     ← design tokens from the Ferry mockup
     │   ├── notify.ts                    ← local notification when an answer lands
+    │   ├── purchases.ts                 ← buy / restore the add-on
     │   ├── useHandshakeVisibility.ts    ← when screen A may appear
     │   ├── components/
     │   │   ├── HandshakePanel.tsx       ← screen 1a
     │   │   ├── MessageBubble.tsx        ← 1b / 1e
     │   │   ├── PendingCard.tsx          ← 1b short wait / 1c long wait
     │   │   ├── QueuedList.tsx           ← 1d
-    │   │   ├── KeyField.tsx             ← paste/replace/remove a key
-    │   │   ├── ProviderPicker.tsx       ← segmented model control
-    │   │   ├── Toggle.tsx / Button.tsx / FadingRule.tsx / Markdown.tsx
+    │   │   ├── ModelPicker.tsx          ← segmented model control
+    │   │   └── Toggle.tsx / Button.tsx / FadingRule.tsx / Markdown.tsx
     │   ├── screens/
     │   │   ├── HomeScreen.tsx           ← chat + screen A gate
     │   │   ├── ChatsScreen.tsx          ← all chats
     │   │   ├── HistoryScreen.tsx        ← bandwidth ("Data" tab)
     │   │   └── SettingsScreen.tsx       ← 1f
     │   ├── state/
+    │   │   ├── entitlementStore.ts      ← what this device may use
     │   │   ├── threadStore.ts           ← conversations, persisted
+    │   │   ├── fileStorage.ts           ← chats as a file on the device
     │   │   ├── metricsStore.ts          ← per-message bandwidth, persisted
     │   │   ├── settingsStore.ts         ← toggles, persisted
-    │   │   ├── keyStore.ts              ← keys in the OS keystore
     │   │   └── thread.ts                ← ThreadMessage types
     │   ├── queue/
     │   │   ├── offlineQueue.ts          ← durable queue
@@ -420,25 +425,24 @@ replies rather than quoting a number from a single sample.
 - [x] **8.6** Send timeout split from chunk timeout
 - [x] **8.7** Data screen leads with the brevity win, measured from real replies
 - [x] **8.8** Server: tiered catalogue, four service keys, entitlement enforced on `/v1/chat`
-- [ ] **8.9** Fix the 403/503 ordering for an unconfigured model
-- [ ] **8.10** Client adopts `ModelInfo`; delete `ProviderStatus` / `fetchProviders`
-- [ ] **8.11** Model picker lists models (not providers); locked ones greyed and unselectable
+- [x] **8.9** Fix the 403/503 ordering for an unconfigured model
+- [x] **8.10** Client adopts `ModelInfo`; delete `ProviderStatus` / `fetchProviders`
+- [x] **8.11** Model picker lists models (not providers); locked ones greyed and unselectable
 
 ### Phase 9 — Replace the accounts layer with entitlements ✂️
-- [ ] **9.1** Delete `server/app/auth.py`, `server/app/accounts.py`, `server/.accounts.json`
-- [ ] **9.2** Delete `client/src/auth/google.ts`, `client/src/state/sessionStore.ts`
-- [ ] **9.3** Remove `expo-auth-session` / `expo-web-browser`; drop `GOOGLE_CLIENT_ID` from
-      config and `.env.example`
-- [ ] **9.4** `/v1/entitlement` replaces `/v1/session` + `/v1/subscription`: takes a store
+- [x] **9.1** Delete `server/app/auth.py`, `server/app/accounts.py`, `server/.accounts.json`
+- [x] **9.2** Delete `client/src/auth/google.ts`, `client/src/state/sessionStore.ts`
+- [x] **9.3** Remove `expo-auth-session` / `expo-web-browser`; drop `GOOGLE_CLIENT_ID`
+- [x] **9.4** `/v1/entitlement` replaces `/v1/session` + `/v1/subscription`: takes a store
       receipt, returns the model catalogue plus remaining allowance
-- [ ] **9.5** Delete `KeyField.tsx`, `keyStore.ts`, `expo-secure-store`
-- [ ] **9.6** Rewrite the server session tests as entitlement tests
+- [x] **9.5** Delete `KeyField.tsx`, `keyStore.ts`, `expo-secure-store`
+- [x] **9.6** Rewrite the server session tests as entitlement tests
 
 ### Phase 10 — Screen A 🚪
-- [ ] **10.1** Two real checks (network, relay) plus what you can use right now
-- [ ] **10.2** Free Gemini works immediately with no interaction
-- [ ] **10.3** "Unlock all models" button → purchase sheet; "Restore purchases" alongside it
-- [ ] **10.4** After purchase, show which models are now available and continue to chat
+- [x] **10.1** Two real checks (network, relay) plus what you can use right now
+- [x] **10.2** Free Gemini works immediately with no interaction
+- [x] **10.3** "Unlock all models" button + "Restore purchases" alongside it
+- [x] **10.4** After purchase, show which models are now available and continue to chat
 
 ### Phase 11 — Purchase and entitlement 💳
 - [ ] **11.1** RevenueCat account; one non-consumable product in App Store Connect and
@@ -446,29 +450,37 @@ replies rather than quoting a number from a single sample.
 - [ ] **11.2** `react-native-purchases` in the app, behind a dev build
 - [ ] **11.3** Client sends the RevenueCat/store token with each request
 - [ ] **11.4** Relay validates the receipt server-side before serving a paid model
-- [ ] **11.5** Retire the `POST /v1/subscription` dev toggle
+- [ ] **11.5** Retire the `POST /v1/dev/entitlement` toggle (`ALLOW_DEV_SUBSCRIPTION=false`)
 - [ ] **11.6** Store listing copy: what the add-on unlocks, the monthly allowance, price
 
 ### Phase 12 — Fair-use cap 📊
-- [ ] **12.1** Usage counter keyed by receipt/purchase id
+- [x] **12.1** Usage counter keyed by receipt/purchase id
 - [ ] **12.2** Count **answers per month**; also record token cost per answer so the limit
       can be re-tuned from real data
-- [ ] **12.3** Over the cap → paid models fall back to free Gemini until reset, stated
+- [x] **12.3** Over the cap → paid models fall back to free Gemini until reset, stated
       plainly in the UI
-- [ ] **12.4** Show remaining allowance in Settings
+- [x] **12.4** Show remaining allowance in Settings
 - [ ] **12.5** Set the limit once per-answer cost is measured
 
-### Phase 13 — Persistence and deployment 🗄️
-- [ ] **13.1** SQLAlchemy models for entitlements + usage
-- [ ] **13.2** SQLite locally, `DATABASE_URL` for managed Postgres in production
-- [ ] **13.3** Alembic migrations
-- [ ] **13.4** Dockerfile for the relay
-- [ ] **13.5** Deploy to Fly.io / Railway / Render with managed Postgres
-- [ ] **13.6** Point the app at the deployed relay over HTTPS
-- [ ] **13.7** Replace the in-memory chunk cache, or pin the relay to one instance
+### Phase 13 — Deployment 🗄️
+- [x] **13.1** Entitlements kept in a file, not a database — one four-column record
+      does not need SQLAlchemy, Alembic and Postgres
+- [x] **13.2** `ENTITLEMENT_STORE_PATH` so the store can live on a mounted volume;
+      a container filesystem is wiped on every deploy
+- [x] **13.3** `ALLOW_DEV_SUBSCRIPTION` defaults to false — a relay deployed with it
+      on gives the paid models away
+- [x] **13.4** Dockerfile (non-root, one worker) + `.dockerignore`
+- [x] **13.5** `CORS_ALLOW_ORIGINS` configurable
+- [x] **13.6** `client/app.json`: bundle identifier, package, version code
+- [x] **13.7** `client/eas.json` build profiles
+- [x] **13.8** `DEPLOY.md` — relay first, then the app that points at it
+- [ ] **13.9** Deploy the relay and put its HTTPS URL in `eas.json` (needs a host account)
+- [ ] **13.10** Replace the in-memory chunk cache, or keep the relay pinned to one instance
 
 ### Phase 14 — Outstanding engineering 🔧
-- [ ] **14.1** Run the 90% packet-loss proof: 10× at `LOSS_PROBABILITY=0.9` + a 0% control
+- [x] **14.1** The 90% packet-loss proof exists and runs. **Ferry fails it**: 0/10
+      answers reassembled at 90% loss, 10/10 with no loss. 20 attempts/2s cap gives
+      4/5; 40 attempts/1s cap gives 5/5. Constants deliberately left unchanged
 - [ ] **14.2** Test on a physical phone
 - [ ] **14.3** Shared-dictionary compression to beat the ~700 B crossover
 - [ ] **14.4** Delete orphans: `TunnelButton.tsx`, `ProviderSelector.tsx`
@@ -477,8 +489,8 @@ replies rather than quoting a number from a single sample.
 
 ## 6. Next Steps
 
-1. **8.9–8.11** — finish the model catalogue on both sides
-2. **Phase 9** — swap the accounts layer for receipt-based entitlement
-3. **Phase 10–11** — screen A without sign-in, then the purchase itself
-4. **Phase 12** — the fair-use cap, so one payment cannot buy unbounded API spend
-5. **Phase 13** — database and hosting, once there is something worth deploying
+1. **13.9** — deploy the relay, then put its HTTPS URL in `eas.json`
+2. **Phase 11** — the real purchase: RevenueCat, a store product, a dev build.
+   Until this lands the unlock button does nothing in production
+3. **14.2** — an EAS preview build on a real phone
+4. **12.2 / 12.5** — record per-answer cost, then set the allowance and price from it

@@ -1,0 +1,8 @@
+.env
+.certs/
+.entitlements.json
+.venv/
+__pycache__/
+*.pyc
+tests/
+scripts/

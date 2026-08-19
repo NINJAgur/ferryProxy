@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: ferry-relay
+    runtime: python
+    plan: free
+    # Closest region to Israel; oregon/ohio/virginia/singapore are the alternatives.
+    region: frankfurt
+    # The repo holds the app too, and only the relay is deployed.
+    rootDir: server
+    buildCommand: pip install -r requirements.txt
+    # Render assigns the port; binding anything else makes the service unreachable.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Never true in production: it would let anyone unlock the paid models.
+      - key: ALLOW_DEV_SUBSCRIPTION
+        value: "false"
+      - key: MONTHLY_ANSWER_ALLOWANCE
+        value: "300"
+      # sync:false keeps secrets out of the repo — Render prompts for these once.
+      - key: GEMINI_FREE_API_KEY
+        sync: false
+      - key: GEMINI_PAID_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: REVENUECAT_API_KEY
+        sync: false

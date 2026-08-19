@@ -81,12 +81,15 @@ class ModelInfo(CamelModel):
     reason: Literal["free", "subscribed", "needs_subscription", "unavailable"]
 
 
-class SessionResponse(CamelModel):
-    """`email` is empty for an anonymous caller, who still gets the free model."""
+class EntitlementResponse(CamelModel):
+    """What a device may use. There is no account here — only whether a purchase
+    exists, and how much of this month's allowance it has left."""
 
-    email: str
-    signed_in: bool
-    subscribed: bool
+    unlocked: bool
+    answers_used: int
+    answers_allowed: int
+    #: Owns the add-on but has spent the month's allowance; the free model carries on.
+    capped: bool
     models: List[ModelInfo]
 
 

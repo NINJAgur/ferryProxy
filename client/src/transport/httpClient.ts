@@ -2,39 +2,27 @@ import {
   ChatRequestEnvelope,
   ChatResponseEnvelope,
   ChunkResponse,
+  EntitlementInfo,
   ErrorEnvelope,
-  SessionInfo,
 } from "./types";
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
-/** Works with or without a token: anonymous callers still get the free model. */
-export async function fetchSession(idToken?: string, timeoutMs = 15000): Promise<SessionInfo> {
-  const headers: Record<string, string> = {};
-  if (idToken) headers.Authorization = `Bearer ${idToken}`;
-  const response = await fetchWithTimeout(
-    `${BASE_URL}/v1/session`,
-    { method: "POST", headers },
-    timeoutMs
-  );
-  if (!response.ok) {
-    throw new HttpError(response.status, await safeJson<ErrorEnvelope>(response));
-  }
-  return response.json();
+/** The store receipt travels here. No receipt is the free tier, not an error. */
+export const RECEIPT_HEADER = "X-Store-Receipt";
+
+function receiptHeaders(receipt?: string): Record<string, string> {
+  return receipt ? { [RECEIPT_HEADER]: receipt } : {};
 }
 
-export async function setSubscription(
-  idToken: string,
-  subscribed: boolean,
+/** Works with or without a receipt: anonymous callers still get the free model. */
+export async function fetchEntitlement(
+  receipt?: string,
   timeoutMs = 15000
-): Promise<SessionInfo> {
+): Promise<EntitlementInfo> {
   const response = await fetchWithTimeout(
-    `${BASE_URL}/v1/subscription`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ subscribed }),
-    },
+    `${BASE_URL}/v1/entitlement`,
+    { method: "POST", headers: receiptHeaders(receipt) },
     timeoutMs
   );
   if (!response.ok) {
@@ -66,12 +54,14 @@ export class HttpError extends Error {
 export async function postChat(
   envelope: ChatRequestEnvelope,
   timeoutMs: number,
-  idToken?: string
+  receipt?: string
 ): Promise<ChatResponseEnvelope> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  // Identity, not a credential: the relay works out what this account may use and
-  // supplies its own provider key. No API key ever reaches the device.
-  if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+  // Proof of purchase, not a credential: the relay works out what the receipt may
+  // use and supplies its own provider key. No API key ever reaches the device.
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...receiptHeaders(receipt),
+  };
   const response = await fetchWithTimeout(
     `${BASE_URL}/v1/chat`,
     { method: "POST", headers, body: JSON.stringify(envelope) },

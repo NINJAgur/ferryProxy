@@ -6,25 +6,25 @@ from app.config import settings
 from app.logging_config import configure_logging
 from app.routes.chat import router as chat_router
 from app.routes.chunks import router as chunks_router
-from app.routes.session import router as session_router
+from app.routes.entitlement import router as entitlement_router
 
 configure_logging()
 
 app = FastAPI(title="proxyAI")
 app.state.response_cache = ResponseCache(ttl_seconds=settings.cache_ttl_seconds)
 
-# Permissive by design: this is a local relay, not a multi-tenant service,
-# and the client (Expo web/PC, iOS, Android) can run from any dev port or device.
+# The native app sends no Origin, so this only constrains browsers. "*" suits a
+# dev machine, where the app runs from whatever port Expo picked.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 app.include_router(chat_router)
 app.include_router(chunks_router)
-app.include_router(session_router)
+app.include_router(entitlement_router)
 
 
 @app.get("/health")

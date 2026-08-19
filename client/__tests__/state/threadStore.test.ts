@@ -72,3 +72,21 @@ describe("threadStore", () => {
     expect(contents).toContain("kept across restarts");
   });
 });
+
+describe("clearing chats", () => {
+  it("empties the file on disk, not just the screen", async () => {
+    useThreadStore.getState().startNew("c1");
+    useThreadStore.getState().append(msg("m1", "something private"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(Array.from(__files.values()).join()).toContain("something private");
+
+    useThreadStore.getState().clearAll();
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Deleting must reach the stored copy — clearing only the in-memory list
+    // would leave the conversation on the device.
+    expect(Array.from(__files.values()).join()).not.toContain("something private");
+    expect(useThreadStore.getState().conversations).toEqual([]);
+    expect(useThreadStore.getState().activeId).toBeNull();
+  });
+});

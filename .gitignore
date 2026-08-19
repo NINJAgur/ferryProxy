@@ -12,8 +12,8 @@ server/.env
 # Locally generated CA bundle (machine-specific: public roots + local TLS proxy cert)
 server/.certs/
 
-# Account/entitlement store — stands in for a database, holds user emails
-server/.accounts.json
+# Entitlement store — stands in for a database, holds purchase receipts
+server/.entitlements.json
 
 # Node / Expo
 client/node_modules/

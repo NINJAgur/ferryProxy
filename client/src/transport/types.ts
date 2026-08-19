@@ -65,11 +65,14 @@ export interface ModelInfo {
   reason: "free" | "subscribed" | "needs_subscription" | "unavailable";
 }
 
-export interface SessionInfo {
-  /** Empty for an anonymous caller, who still gets the free model. */
-  email: string;
-  signedIn: boolean;
-  subscribed: boolean;
+/** What this device may use. There is no account — only whether the add-on was
+ *  bought, and how much of this month's allowance is left. */
+export interface EntitlementInfo {
+  unlocked: boolean;
+  answersUsed: number;
+  answersAllowed: number;
+  /** Owns the add-on but has spent the month's answers; the free model carries on. */
+  capped: boolean;
   models: ModelInfo[];
 }
 
