@@ -46,9 +46,9 @@ away.
 
 ## 2. Point the app at it
 
-Replace `REPLACE-WITH-YOUR-RELAY` in `client/eas.json` (both `preview` and
-`production`) with the HTTPS URL from step 1. `http` will not do: iOS blocks
-cleartext by default.
+Done: `client/eas.json` points `preview` and `production` at
+`https://ferryproxy.onrender.com`. The `development` profile still uses
+`http://127.0.0.1:8000`, so a dev build talks to a relay on your machine.
 
 ## 3. Build the app
 

@@ -14,13 +14,13 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-YOUR-RELAY"
+        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-YOUR-RELAY"
+        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com"
       }
     }
   },
