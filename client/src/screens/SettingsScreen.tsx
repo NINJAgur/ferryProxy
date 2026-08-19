@@ -1,14 +1,15 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { FadingRule } from "../components/FadingRule";
-import { KeyField } from "../components/KeyField";
 import { PressState } from "../components/pressState";
 import { Toggle } from "../components/Toggle";
-import { KEYED_PROVIDERS, useKeyStore } from "../state/keyStore";
+import { Button } from "../components/Button";
+import { chatFileLocation } from "../state/fileStorage";
+import { useSessionStore } from "../state/sessionStore";
+import { CHAT_FILE } from "../state/threadStore";
 import { SettingsValues, useSettingsStore } from "../state/settingsStore";
 import { colors, fonts } from "../theme";
-import { Provider, ProviderStatus } from "../transport/types";
 
 const SETTINGS: { key: keyof SettingsValues; label: string; note: string }[] = [
   {
@@ -29,22 +30,9 @@ const SETTINGS: { key: keyof SettingsValues; label: string; note: string }[] = [
   },
 ];
 
-const KEY_HELP: Record<string, string> = {
-  anthropic: "console.anthropic.com — paid per token",
-  openai: "platform.openai.com — paid per token",
-  gemini: "aistudio.google.com/apikey — has a free tier",
-};
-
-export function SettingsScreen({ providers }: { providers: ProviderStatus[] }) {
+export function SettingsScreen() {
   const settings = useSettingsStore();
-  const { keys, load, setKey } = useKeyStore();
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const labelFor = (p: Provider) => providers.find((x) => x.name === p)?.label ?? p;
-  const relayHasKey = (p: Provider) => !!providers.find((x) => x.name === p)?.ready;
+  const session = useSessionStore();
 
   return (
     <View style={styles.screen}>
@@ -70,35 +58,43 @@ export function SettingsScreen({ providers }: { providers: ProviderStatus[] }) {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Your API keys</Text>
+        <Text style={styles.sectionTitle}>Your plan</Text>
         <Text style={styles.sectionNote}>
-          A key here is yours: it is sent with your requests only, so the usage lands on your own
-          account rather than the relay's. Without one, Ferry falls back to whatever key the relay
-          itself has — which may be none.
+          {session.subscribed
+            ? "Subscribed — every model is included."
+            : "Gemini is included free. Claude and GPT are billed per answer, so they come with a subscription."}
         </Text>
-        {KEYED_PROVIDERS.map((p) => (
-          <KeyField
-            key={p}
-            provider={p}
-            label={labelFor(p)}
-            help={KEY_HELP[p] ?? ""}
-            value={keys[p]}
-            relayHasKey={relayHasKey(p)}
-            onSave={(provider, value) => void setKey(provider, value)}
-          />
+        {session.models.map((m) => (
+          <View key={m.name} style={styles.connRow}>
+            <Text style={[styles.connLabel, !m.unlocked && styles.connLabelLocked]}>{m.label}</Text>
+            <Text style={[styles.connStatus, !m.unlocked && styles.connStatusOff]}>
+              {m.unlocked
+                ? "included"
+                : m.reason === "needs_subscription"
+                  ? "with a subscription"
+                  : "not available"}
+            </Text>
+          </View>
         ))}
+        {!session.subscribed && session.models.some((m) => m.reason === "needs_subscription") ? (
+          <View style={styles.planAction}>
+            <Button label="Subscribe" onPress={() => void session.subscribe()} height={44} fontSize={14} />
+          </View>
+        ) : null}
         <Text style={styles.storageNote}>
-          {Platform.OS === "web"
-            ? "In this browser preview keys sit in localStorage. On a phone they go to the OS keystore."
-            : "Keys are held in the device keystore (Keychain on iOS, Keystore on Android), separate from your chats."}
+          Ferry holds the model accounts. There are no API keys to manage here, and none is ever
+          stored on this device.
         </Text>
 
         <Text style={styles.sectionTitle}>Where your data lives</Text>
         <Text style={styles.sectionNote}>
-          Chats, bandwidth figures and these settings are stored on this{" "}
-          {Platform.OS === "web" ? "browser" : "phone"} and are never uploaded. The relay sees a
-          prompt long enough to answer it and keeps no conversation of its own — only a few minutes
-          of the answer's pieces, so a dropped one can be re-fetched.
+          Chats are written to a file on this {Platform.OS === "web" ? "browser" : "device"}, not to
+          cache the system can clear. Nothing is uploaded — the relay sees a prompt long enough to
+          answer it and keeps no conversation of its own, only a few minutes of the answer's pieces
+          so a dropped one can be re-fetched.
+        </Text>
+        <Text style={styles.pathNote} selectable>
+          {chatFileLocation(CHAT_FILE)}
         </Text>
 
         <View style={styles.spacer} />
@@ -131,7 +127,27 @@ const styles = StyleSheet.create({
   rowNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text45, marginTop: 3, lineHeight: 17.4 },
   sectionTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, marginTop: 28, marginBottom: 6 },
   sectionNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text45, lineHeight: 18, marginBottom: 6 },
-  storageNote: { fontFamily: fonts.body, fontSize: 11, color: colors.text40, marginTop: 10, lineHeight: 16 },
+  connRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 13,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider08,
+  },
+  connLabel: { fontFamily: fonts.body, fontSize: 14.5, color: colors.text },
+  connLabelLocked: { color: colors.text55 },
+  planAction: { marginTop: 12 },
+  connStatus: { fontFamily: fonts.body, fontSize: 12, color: colors.accent400 },
+  connStatusOff: { color: colors.text40 },
+  storageNote: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text40, marginTop: 12, lineHeight: 17 },
+  pathNote: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.text40,
+    marginTop: 8,
+    lineHeight: 15,
+  },
   spacer: { height: 28 },
   footer: { paddingHorizontal: 22, paddingBottom: 24 },
   footerText: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text35, marginTop: 14 },

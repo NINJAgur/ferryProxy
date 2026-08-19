@@ -1,4 +1,4 @@
-export type Provider = "demo" | "anthropic" | "openai" | "gemini";
+export type Provider = "anthropic" | "openai" | "gemini";
 export type Algorithm = "gzip" | "none";
 
 export interface HistoryMessage {
@@ -52,6 +52,21 @@ export interface ChunkResponse {
 export interface ErrorEnvelope {
   error: string;
   message: string;
+}
+
+/** What an account may use. Says nothing about keys — the relay holds those. */
+export interface ModelAccess {
+  name: Provider;
+  label: string;
+  unlocked: boolean;
+  reason: "included" | "needs_subscription" | "unavailable";
+  needsSubscription: boolean;
+}
+
+export interface SessionInfo {
+  email: string;
+  subscribed: boolean;
+  models: ModelAccess[];
 }
 
 export interface ProviderStatus {

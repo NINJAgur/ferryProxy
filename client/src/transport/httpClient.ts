@@ -4,9 +4,42 @@ import {
   ChunkResponse,
   ErrorEnvelope,
   ProviderStatus,
+  SessionInfo,
 } from "./types";
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+export async function fetchSession(idToken: string, timeoutMs = 15000): Promise<SessionInfo> {
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/v1/session`,
+    { method: "POST", headers: { Authorization: `Bearer ${idToken}` } },
+    timeoutMs
+  );
+  if (!response.ok) {
+    throw new HttpError(response.status, await safeJson<ErrorEnvelope>(response));
+  }
+  return response.json();
+}
+
+export async function setSubscription(
+  idToken: string,
+  subscribed: boolean,
+  timeoutMs = 15000
+): Promise<SessionInfo> {
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/v1/subscription`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ subscribed }),
+    },
+    timeoutMs
+  );
+  if (!response.ok) {
+    throw new HttpError(response.status, await safeJson<ErrorEnvelope>(response));
+  }
+  return response.json();
+}
 
 export async function fetchProviders(timeoutMs = 5000): Promise<ProviderStatus[]> {
   try {
@@ -42,12 +75,12 @@ export class HttpError extends Error {
 export async function postChat(
   envelope: ChatRequestEnvelope,
   timeoutMs: number,
-  userKey?: string
+  idToken?: string
 ): Promise<ChatResponseEnvelope> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  // Sent as a header, never inside the payload: the payload is compressed,
-  // chunked and cached on the relay, and a credential belongs in none of that.
-  if (userKey) headers["X-Provider-Key"] = userKey;
+  // Identity, not a credential: the relay works out what this account may use and
+  // supplies its own provider key. No API key ever reaches the device.
+  if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
   const response = await fetchWithTimeout(
     `${BASE_URL}/v1/chat`,
     { method: "POST", headers, body: JSON.stringify(envelope) },

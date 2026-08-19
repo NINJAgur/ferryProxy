@@ -36,6 +36,36 @@ export interface SessionTotals {
   compressionRatio: number;
 }
 
+export interface BrevityComparison {
+  briefCount: number;
+  fullCount: number;
+  briefAvgBytes: number;
+  fullAvgBytes: number;
+  /** Fraction of the answer avoided by asking for a short one. */
+  saved: number;
+}
+
+/** What brevity is worth, measured from this device's own answers rather than
+ *  assumed. Returns null until there is at least one of each to compare, because
+ *  a saving quoted from one sample would be a guess dressed up as a number. */
+export function computeBrevityComparison(messages: MessageMetrics[]): BrevityComparison | null {
+  const brief = messages.filter((m) => m.brief);
+  const full = messages.filter((m) => !m.brief);
+  if (brief.length === 0 || full.length === 0) return null;
+
+  const avg = (xs: MessageMetrics[]) =>
+    xs.reduce((a, m) => a + m.rawResponseBytes, 0) / xs.length;
+  const briefAvgBytes = avg(brief);
+  const fullAvgBytes = avg(full);
+  return {
+    briefCount: brief.length,
+    fullCount: full.length,
+    briefAvgBytes,
+    fullAvgBytes,
+    saved: fullAvgBytes > 0 ? 1 - briefAvgBytes / fullAvgBytes : 0,
+  };
+}
+
 export function computeSessionTotals(messages: MessageMetrics[]): SessionTotals {
   const totals = messages.reduce(
     (acc, m) => ({

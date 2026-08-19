@@ -25,8 +25,8 @@ The wire format is documented in [PROTOCOL.md](PROTOCOL.md).
 
 - Python 3.9+
 - Node 18+
-- One API key (Gemini has a free tier: <https://aistudio.google.com/apikey>), or none at
-  all — the built-in `demo` provider answers without any key.
+- An API key for at least one model. Gemini has a free tier:
+  <https://aistudio.google.com/apikey>
 
 ## Running it
 
@@ -65,12 +65,16 @@ On a physical phone, use your machine's LAN IP rather than `127.0.0.1`.
 
 ## Providers
 
-`demo`, `anthropic`, `openai`, `gemini` — chosen per request from the app. Keys live only
-in `server/.env`; the phone never holds one. `GET /v1/providers` reports which are usable,
-which is what the app's first screen is checking.
+`anthropic`, `openai`, `gemini` — chosen per request from the app.
 
-The `demo` provider needs no key and answers instantly, so the whole transport can be
-exercised offline.
+Keys can come from either end. A key you add in the app's own settings is held in the
+device keystore and sent with your requests in an `X-Provider-Key` header, so usage lands
+on your account rather than the relay's. Failing that, the relay falls back to whatever is
+in `server/.env`. `GET /v1/providers` reports which the relay itself can cover, and the
+app's first screen shows, per model, whether a usable key exists at all.
+
+No provider hands out keys programmatically, so the app cannot create one for you — the
+first screen links to each provider's key page instead, where you sign in and make one.
 
 ## Testing a bad connection
 

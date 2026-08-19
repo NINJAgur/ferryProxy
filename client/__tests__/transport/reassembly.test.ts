@@ -10,7 +10,13 @@ jest.mock("../../src/transport/ids");
 import { getChunk, HttpError, postChat } from "../../src/transport/httpClient";
 import { decodePayload, encodePayload, sha256Hex } from "../../src/transport/compression";
 import { generateId } from "../../src/transport/ids";
-import { isRetryable, sendPrompt } from "../../src/transport/reassembly";
+import {
+  CHUNK_FETCH_TIMEOUT_MS,
+  isRetryable,
+  REASSEMBLY_BUDGET_MS,
+  SEND_TIMEOUT_MS,
+  sendPrompt,
+} from "../../src/transport/reassembly";
 
 const mockPostChat = postChat as jest.MockedFunction<typeof postChat>;
 const mockGetChunk = getChunk as jest.MockedFunction<typeof getChunk>;
@@ -147,5 +153,18 @@ describe("isRetryable", () => {
   it("retries transient upstream failures", () => {
     expect(isRetryable(new HttpError(502, undefined))).toBe(true);
     expect(isRetryable(new HttpError(504, undefined))).toBe(true);
+  });
+});
+
+describe("timeouts", () => {
+  it("waits far longer for the model than for a cached chunk", () => {
+    // The opening POST blocks on the whole generation; a chunk fetch is a cached
+    // slice. Sharing one 8s value made every real send time out and retry.
+    expect(SEND_TIMEOUT_MS).toBeGreaterThan(CHUNK_FETCH_TIMEOUT_MS);
+    expect(SEND_TIMEOUT_MS).toBeGreaterThanOrEqual(30000);
+  });
+
+  it("gives the whole exchange more room than a single send", () => {
+    expect(REASSEMBLY_BUDGET_MS).toBeGreaterThan(SEND_TIMEOUT_MS);
   });
 });

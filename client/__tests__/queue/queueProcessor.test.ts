@@ -25,6 +25,7 @@ describe("drainQueue", () => {
     mockSendPrompt.mockResolvedValue({
       response: { content: "ok", provider: "anthropic", model: "m", stopReason: "end_turn" },
       metrics: {
+        brief: false,
         rawPromptBytes: 10,
         rawResponseBytes: 10,
         compressedBytesSent: 10,
@@ -51,7 +52,8 @@ describe("drainQueue", () => {
       .mockResolvedValueOnce({
         response: { content: "ok", provider: "anthropic", model: "m", stopReason: "end_turn" },
         metrics: {
-          rawPromptBytes: 10,
+          brief: false,
+        rawPromptBytes: 10,
           rawResponseBytes: 10,
           compressedBytesSent: 10,
           compressedBytesReceived: 10,

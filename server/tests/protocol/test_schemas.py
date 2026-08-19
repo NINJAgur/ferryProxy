@@ -15,7 +15,9 @@ def test_request_plaintext_accepts_camel_case_json() -> None:
 
 def test_request_plaintext_defaults() -> None:
     parsed = ChatRequestPlaintext.model_validate({"prompt": "hi"})
-    assert parsed.provider == "anthropic"
+    # No model named means the relay picks the free one, so there is no default
+    # provider baked into the wire format.
+    assert parsed.provider is None
     assert parsed.model is None
     assert parsed.history == []
 

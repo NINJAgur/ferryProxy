@@ -3,10 +3,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { PressState } from "./pressState";
 import { colors, fonts, radius } from "../theme";
-import { Provider } from "../transport/types";
+import { ModelAccess, Provider } from "../transport/types";
 
 const OPTIONS: { value: Provider; label: string }[] = [
-  { value: "demo", label: "Demo" },
   { value: "anthropic", label: "Claude" },
   { value: "openai", label: "GPT" },
   { value: "gemini", label: "Gemini" },
@@ -16,33 +15,35 @@ interface ProviderPickerProps {
   value: Provider;
   onChange: (provider: Provider) => void;
   disabled?: boolean;
-  /** Providers whose credentials the server reports as present. */
-  readyNames?: Provider[];
+  /** What this account may use. A locked model is shown but cannot be chosen. */
+  models?: ModelAccess[];
 }
 
 /** The design system's `.seg` segmented control. */
-export function ProviderPicker({ value, onChange, disabled, readyNames }: ProviderPickerProps) {
+export function ProviderPicker({ value, onChange, disabled, models }: ProviderPickerProps) {
   return (
     <View style={styles.seg}>
       {OPTIONS.map((option, index) => {
         const active = option.value === value;
-        const needsKey = !!readyNames && !readyNames.includes(option.value);
+        const access = models?.find((m) => m.name === option.value);
+        const locked = !!models && !access?.unlocked;
         return (
           <Pressable
             key={option.value}
             onPress={() => onChange(option.value)}
-            disabled={disabled}
+            disabled={disabled || locked}
             style={({ hovered }: PressState) => [
               styles.opt,
               index > 0 && styles.optDivided,
               active && styles.optActive,
-              !active && hovered && { backgroundColor: colors.textHover },
-              disabled && styles.disabled,
+              !active && !locked && hovered && { backgroundColor: colors.textHover },
+              (disabled || locked) && styles.disabled,
             ]}
           >
-            <Text style={[styles.label, active && styles.labelActive, needsKey && styles.labelNeedsKey]}>
+            {/* Selection still wins visually, so the chosen model always reads as
+                chosen; a locked one is greyed and simply cannot be selected. */}
+            <Text style={[styles.label, locked && styles.labelLocked, active && styles.labelActive]}>
               {option.label}
-              {needsKey ? " ·" : ""}
             </Text>
           </Pressable>
         );
@@ -66,5 +67,5 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
   label: { fontFamily: fonts.body, fontSize: 13, color: colors.text },
   labelActive: { color: colors.accent },
-  labelNeedsKey: { color: colors.text45 },
+  labelLocked: { color: colors.text40 },
 });

@@ -3,8 +3,9 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-Provider = Literal["demo", "anthropic", "openai", "gemini"]
+Provider = Literal["anthropic", "openai", "gemini"]
 Algorithm = Literal["gzip", "none"]
+Tier = Literal["free", "paid"]
 
 
 class CamelModel(BaseModel):
@@ -19,7 +20,7 @@ class HistoryMessage(CamelModel):
 class ChatRequestPlaintext(CamelModel):
     prompt: str
     history: List[HistoryMessage] = []
-    provider: Provider = "anthropic"
+    provider: Optional[Provider] = None
     model: Optional[str] = None
     max_tokens: Optional[int] = None
     brief: bool = False
@@ -65,6 +66,28 @@ class ChunkResponse(TerseModel):
 class ErrorEnvelope(CamelModel):
     error: str
     message: str
+
+
+class ModelInfo(CamelModel):
+    """A model the caller may or may not use. Says nothing about keys — the relay
+    holds those, and which one served an answer is never the user's concern."""
+
+    id: str
+    label: str
+    provider: Provider
+    tier: Tier
+    blurb: str
+    unlocked: bool
+    reason: Literal["free", "subscribed", "needs_subscription", "unavailable"]
+
+
+class SessionResponse(CamelModel):
+    """`email` is empty for an anonymous caller, who still gets the free model."""
+
+    email: str
+    signed_in: bool
+    subscribed: bool
+    models: List[ModelInfo]
 
 
 class ProviderStatus(CamelModel):

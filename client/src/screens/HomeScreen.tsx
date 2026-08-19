@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { HandshakePanel } from "../components/HandshakePanel";
+import { CheckState, HandshakePanel } from "../components/HandshakePanel";
 import { MessageBubble } from "../components/MessageBubble";
 import { PendingCard } from "../components/PendingCard";
 import { ProviderPicker } from "../components/ProviderPicker";
@@ -27,29 +27,23 @@ import {
 } from "../state/settingsStore";
 import { PendingSend, ThreadMessage } from "../state/thread";
 import { useThreadStore } from "../state/threadStore";
-import { useKeyStore } from "../state/keyStore";
+import { useSessionStore } from "../state/sessionStore";
+import { isSignInConfigured } from "../auth/google";
 import { PressState } from "../components/pressState";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
 import { sendPrompt } from "../transport/reassembly";
 import { ReassemblyStatus } from "../transport/reassemblyState";
-import { Provider, ProviderStatus } from "../transport/types";
-import { useHandshakeVisibility } from "../useHandshakeVisibility";
+import { Provider } from "../transport/types";
 
-export function HomeScreen({
-  providers,
-  refreshProviders,
-}: {
-  providers: ProviderStatus[];
-  refreshProviders: () => void;
-}) {
+export function HomeScreen() {
   const sessionId = useRef(generateId()).current;
   const inputRef = useRef<TextInput>(null);
   const notifyRef = useRef(false);
 
   const [draft, setDraft] = useState("");
-  const [provider, setProvider] = useState<Provider>("demo");
+  const [provider, setProvider] = useState<Provider>("gemini");
   const conversations = useThreadStore((t) => t.conversations);
   const activeId = useThreadStore((t) => t.activeId);
   const appendMessage = useThreadStore((t) => t.append);
@@ -60,11 +54,12 @@ export function HomeScreen({
   const [pendingState, setPendingState] = useState<ReassemblyStatus>({ status: "idle" });
   const [queued, setQueued] = useState<QueuedMessage[]>([]);
   const [online, setOnline] = useState(true);
-  const [wifiJoined, setWifiJoined] = useState(false);
-  const [reachedServer, setReachedServer] = useState(false);
+  const [network, setNetwork] = useState<CheckState>("pending");
+  const [relay, setRelay] = useState<CheckState>("pending");
+  const [dismissedSetup, setDismissedSetup] = useState(false);
 
   const addMetric = useMetricsStore((s) => s.addMessage);
-  const { keys, load } = useKeyStore();
+  const session = useSessionStore();
   const settings = useSettingsStore();
 
   const refreshQueue = () => void loadQueue().then(setQueued);
@@ -75,16 +70,15 @@ export function HomeScreen({
   }, [activeId, startNew]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
     void NetInfo.fetch().then((s) => {
-      setWifiJoined(!!s.isConnected);
+      setNetwork(s.isConnected ? "ok" : "failed");
       setOnline(!!s.isConnected);
     });
-    void checkHealth().then(setReachedServer);
-    return NetInfo.addEventListener((s) => setOnline(!!s.isConnected));
+    void checkHealth().then((ok) => setRelay(ok ? "ok" : "failed"));
+    return NetInfo.addEventListener((s) => {
+      setOnline(!!s.isConnected);
+      setNetwork(s.isConnected ? "ok" : "failed");
+    });
   }, []);
 
   useEffect(() => {
@@ -137,7 +131,7 @@ export function HomeScreen({
           provider: used,
           sessionId,
           brief: settings.answerShortFirst,
-          userKey: keys[used],
+          idToken: session.idToken ?? undefined,
         },
         setPendingState
       );
@@ -158,9 +152,10 @@ export function HomeScreen({
         patch(id, { status: "failed", failReason: err.message });
         // 503 no key, 401/403 rejected, 429 out of quota: the credential is the
         // problem, not the line, so show what is actually broken.
+        // 401 identity rejected, 403 model not on this account, 429 out of quota:
+        // the account is the problem, not the line, so go back to setup.
         if ([401, 403, 429, 503].includes(err.status)) {
-          refreshProviders();
-          reshowHandshake();
+          setDismissedSetup(false);
         }
       } else {
         await enqueue({ id, prompt: content, provider: used });
@@ -197,44 +192,31 @@ export function HomeScreen({
   const busy = !!pending;
   const offlineMode = !online || queued.length > 0;
 
-  const active = providers.find((p) => p.name === provider);
-  const providerReady = !!active?.ready || !!keys[provider];
-  const providerHint =
-    active && !active.ready && !keys[provider] && active.requiresKey
-      ? `${active.label} needs a key. Add your own in Settings, or set ${active.envVar} on the relay.`
-      : undefined;
+  // Setup owns the screen until an account is ready. Rendering the chat first and
+  // swapping to setup a moment later is the flash that made this feel broken.
+  const setupDone = session.phase === "ready" && dismissedSetup;
+  const unlocked = session.models.filter((m) => m.unlocked);
 
-  // Only show the handshake for a wait that is really happening: skipped entirely
-  // when the link is already up, and never flashed past for a fraction of a second.
-  const linkReady = wifiJoined && reachedServer && providerReady;
-  const [showHandshake, dismissHandshake, reshowHandshake] = useHandshakeVisibility(
-    linkReady,
-    messages.length > 0 || queued.length > 0,
-    !settings.introSeen
-  );
-
-  useEffect(() => {
-    if (showHandshake && !settings.introSeen) settings.markIntroSeen();
-  }, [showHandshake, settings]);
-
-  if (showHandshake) {
+  if (!setupDone) {
     return (
-      <View style={styles.screen}>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.handshakeContent}>
         <HandshakePanel
-          wifiJoined={wifiJoined}
-          reachedServer={reachedServer}
-          providerReady={providerReady}
-          providerLabel={active?.label ?? "the model"}
-          providerNeedsKey={active?.requiresKey ?? true}
-          providerKnown={providers.length > 0}
-          providerHint={providerHint}
-          onWriteWhileWaiting={() => {
-            dismissHandshake();
+          network={network}
+          relay={relay}
+          phase={session.phase}
+          email={session.email}
+          subscribed={session.subscribed}
+          models={session.models}
+          error={session.error}
+          signInAvailable={isSignInConfigured()}
+          onSignIn={() => void session.signIn()}
+          onSubscribe={() => void session.subscribe()}
+          onContinue={() => {
+            setDismissedSetup(true);
             setTimeout(() => inputRef.current?.focus(), 50);
           }}
-          onDismiss={dismissHandshake}
         />
-      </View>
+      </ScrollView>
     );
   }
 
@@ -275,7 +257,7 @@ export function HomeScreen({
           value={provider}
           onChange={setProvider}
           disabled={busy}
-          readyNames={providers.length ? providers.filter((p) => p.ready).map((p) => p.name) : undefined}
+          models={session.models}
         />
       </View>
 
@@ -358,6 +340,7 @@ const styles = StyleSheet.create({
   providerRow: { paddingHorizontal: 18, paddingTop: 14 },
   thread: { flex: 1 },
   threadContent: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 8 },
+  handshakeContent: { paddingBottom: 32 },
   composer: {
     flexDirection: "row",
     gap: 10,

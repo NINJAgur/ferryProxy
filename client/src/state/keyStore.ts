@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 import { Provider } from "../transport/types";
 
-/** Providers a user can supply their own key for. `demo` needs none. */
+/** Every provider needs a key: there is no keyless fallback to hide behind. */
 export const KEYED_PROVIDERS: Provider[] = ["anthropic", "openai", "gemini"];
 
 const keyName = (p: Provider) => `ferry.key.${p}`;

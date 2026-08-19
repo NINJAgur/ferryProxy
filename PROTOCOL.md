@@ -48,7 +48,7 @@ Decoded payload (`ChatRequestPlaintext`):
 {
   "prompt": "…",
   "history": [{ "role": "user" | "assistant", "content": "…" }],
-  "provider": "demo" | "anthropic" | "openai" | "gemini",
+  "provider": "anthropic" | "openai" | "gemini",
   "model": "…",        // optional per-provider override
   "maxTokens": 2048    // optional
 }
@@ -84,7 +84,7 @@ The server encodes the whole answer once, then either returns it whole or splits
 Decoded payload (`ChatResponsePlaintext`):
 
 ```jsonc
-{ "content": "…markdown…", "provider": "demo", "model": "demo-1", "stopReason": "end_turn" }
+{ "content": "…markdown…", "provider": "gemini", "model": "gemini-3.6-flash", "stopReason": "STOP" }
 ```
 
 Reassembly: concatenate chunks **in index order** → decode by `a` → parse → verify `k`.
@@ -107,12 +107,14 @@ Reassembly: concatenate chunks **in index order** → decode by `a` → parse �
 ```jsonc
 GET /health        → { "status": "ok" }
 GET /v1/providers  → { "providers": [
-  { "name": "demo", "label": "Demo", "ready": true, "requiresKey": false, "envVar": null },
   { "name": "anthropic", "label": "Claude", "ready": false, "requiresKey": true, "envVar": "ANTHROPIC_API_KEY" }
 ] }
 ```
 
-`ready` reports whether the **relay** holds a usable key. Nobody signs in from the phone.
+`ready` reports whether the **relay** holds a usable key. A user can also supply their own
+in the app, sent per request as an `X-Provider-Key` header — never inside the payload,
+which is compressed, chunked and cached. A caller-supplied key is used for that call only
+and is never cached on the relay.
 
 ## Errors
 

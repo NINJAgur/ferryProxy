@@ -1,10 +1,13 @@
 import json
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 
+from app.auth import AuthNotConfigured, InvalidCredential
 from app.config import settings
+from app.catalogue import default_model, find, is_allowed, resolve_key
+from app.routes.session import optional_account
 from app.llm.base import LLMConfigError, LLMProviderError
 from app.llm.registry import get_provider
 from app.protocol.checksum import sha256_hex
@@ -32,14 +35,12 @@ def _error(status_code: int, error: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=body)
 
 
-# The caller's own key rides in a header, never in the payload: the payload is
-# compressed, chunked and held in the response cache, and a credential has no
-# business in any of that.
-PROVIDER_KEY_HEADER = "X-Provider-Key"
-
-
 @router.post("/v1/chat")
-async def chat(envelope: ChatRequestEnvelope, request: Request) -> JSONResponse:
+async def chat(
+    envelope: ChatRequestEnvelope,
+    request: Request,
+    authorization: str = Header(default=""),
+) -> JSONResponse:
     try:
         decompressed = decode_payload(envelope.algorithm, envelope.payload)
     except Exception:
@@ -53,7 +54,30 @@ async def chat(envelope: ChatRequestEnvelope, request: Request) -> JSONResponse:
     except Exception:
         return _error(400, "invalid_payload", "payload did not match the expected schema")
 
-    provider = get_provider(plaintext.provider)
+    # Anonymous is allowed: the free model needs no account. What it must not do
+    # is reach a paid model, so entitlement is enforced here and not only in the UI.
+    try:
+        account = optional_account(authorization)
+    except (AuthNotConfigured, InvalidCredential) as exc:
+        return _error(401, "invalid_credential", str(exc))
+    subscribed = bool(account and account.entitled)
+
+    model_id = plaintext.model or default_model()
+    entry = find(model_id)
+    if entry is None:
+        return _error(400, "unknown_model", f"{model_id} is not a model Ferry offers")
+
+    # "The relay can't serve this" is checked before "this isn't yours". Both leave
+    # the model locked, but only one of them is the caller's problem, and telling a
+    # subscriber to subscribe because a key is missing would be a lie.
+    api_key = resolve_key(entry)
+    if not api_key:
+        return _error(503, "provider_not_configured", f"{entry.label} is not configured on the relay")
+
+    if not is_allowed(model_id, subscribed):
+        return _error(403, "model_locked", f"{entry.label} needs a subscription")
+
+    provider = get_provider(entry.provider)
     max_tokens = plaintext.max_tokens or settings.llm_max_tokens
     # Ask for a short answer rather than cutting one off: models that think before
     # answering spend the cap on reasoning, so a low ceiling truncates mid-sentence.
@@ -63,9 +87,9 @@ async def chat(envelope: ChatRequestEnvelope, request: Request) -> JSONResponse:
         result = await provider.generate(
             prompt=prompt,
             history=plaintext.history,
-            model=plaintext.model,
+            model=entry.model_id,
             max_tokens=max_tokens,
-            api_key=request.headers.get(PROVIDER_KEY_HEADER) or None,
+            api_key=api_key,
         )
     except LLMConfigError as exc:
         return _error(503, "provider_not_configured", str(exc))
@@ -75,7 +99,7 @@ async def chat(envelope: ChatRequestEnvelope, request: Request) -> JSONResponse:
 
     response_plaintext = ChatResponsePlaintext(
         content=result.content,
-        provider=plaintext.provider,
+        provider=entry.provider,
         model=result.model,
         stop_reason=result.stop_reason,
     )

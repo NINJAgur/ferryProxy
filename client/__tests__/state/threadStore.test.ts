@@ -1,11 +1,11 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// The jest moduleNameMapper points this at __mocks__/expo-file-system.js,
+// which exposes the in-memory file table the real module has no reason to.
+const { __files } = require("expo-file-system") as { __files: Map<string, string> };
 
-import { useThreadStore } from "../../src/state/threadStore";
+import { CHAT_FILE, useThreadStore } from "../../src/state/threadStore";
 
-const STORAGE_KEY = "ferry.chats.v1";
-
-beforeEach(async () => {
-  await AsyncStorage.clear();
+beforeEach(() => {
+  __files.clear();
   useThreadStore.setState({ conversations: [], activeId: null });
 });
 
@@ -60,12 +60,15 @@ describe("threadStore", () => {
     expect(useThreadStore.getState().activeId).toBeNull();
   });
 
-  it("writes chats to device storage so they survive a restart", async () => {
+  it("writes chats to a file on the device, not to key/value cache", async () => {
     useThreadStore.getState().startNew("c1");
     useThreadStore.getState().append(msg("m1", "kept across restarts"));
 
     await new Promise((r) => setTimeout(r, 0));
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    expect(raw).toContain("kept across restarts");
+    const written = Array.from(__files.entries());
+    expect(written).toHaveLength(1);
+    const [path, contents] = written[0];
+    expect(path).toContain(CHAT_FILE);
+    expect(contents).toContain("kept across restarts");
   });
 });

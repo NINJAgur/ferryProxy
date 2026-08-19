@@ -63,7 +63,7 @@ export default function App() {
       </View>
 
       {screen === "chat" ? (
-        <HomeScreen providers={providers} refreshProviders={refreshProviders} />
+        <HomeScreen />
       ) : screen === "chats" ? (
         <ChatsScreen
           onOpen={(id) => {
@@ -78,7 +78,7 @@ export default function App() {
       ) : screen === "data" ? (
         <HistoryScreen />
       ) : (
-        <SettingsScreen providers={providers} />
+        <SettingsScreen />
       )}
       <StatusBar style="light" />
     </SafeAreaView>

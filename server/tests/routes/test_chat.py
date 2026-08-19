@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from app.llm.base import LLMConfigError, LLMResult
 from app.protocol.chunker import reassemble_chunks
 from app.protocol.checksum import sha256_hex
@@ -25,6 +27,13 @@ def _patch_provider(monkeypatch, provider) -> None:
     monkeypatch.setattr(chat_module, "get_provider", lambda name: provider)
 
 
+@pytest.fixture(autouse=True)
+def free_tier_configured(monkeypatch):
+    from app import catalogue as cat
+
+    monkeypatch.setattr(cat.settings, "gemini_free_api_key", "svc-gemini-free")
+
+
 def test_valid_request_returns_single_chunk(client, monkeypatch):
     _patch_provider(monkeypatch, FakeProvider(content="short reply"))
 
@@ -39,7 +48,7 @@ def test_valid_request_returns_single_chunk(client, monkeypatch):
     assert sha256_hex(decompressed) == body["k"]
     payload = json.loads(decompressed)
     assert payload["content"] == "short reply"
-    assert payload["provider"] == "anthropic"
+    assert payload["provider"] == "gemini"
 
 
 def test_bad_checksum_returns_400(client, monkeypatch):
@@ -80,14 +89,30 @@ def test_tampered_plain_payload_returns_400(client, monkeypatch):
     assert response.json()["error"] == "checksum_mismatch"
 
 
-def test_missing_provider_key_returns_503(client, monkeypatch):
-    _patch_provider(monkeypatch, FakeProvider(raises=LLMConfigError("ANTHROPIC_API_KEY is not configured")))
+def test_a_model_the_relay_has_no_key_for_returns_503(client, monkeypatch):
+    from app import catalogue as cat
 
-    envelope = build_envelope({"prompt": "hi"})
-    response = client.post("/v1/chat", json=envelope)
+    monkeypatch.setattr(cat.settings, "gemini_free_api_key", None)
+    _patch_provider(monkeypatch, FakeProvider())
+
+    response = client.post("/v1/chat", json=build_envelope({"prompt": "hi"}))
 
     assert response.status_code == 503
     assert response.json()["error"] == "provider_not_configured"
+
+
+def test_the_service_key_never_appears_in_a_response(client, monkeypatch):
+    from app import catalogue as cat
+
+    monkeypatch.setattr(cat.settings, "gemini_free_api_key", "svc-gemini-free")
+    _patch_provider(monkeypatch, FakeProvider(content="short reply"))
+
+    response = client.post("/v1/chat", json=build_envelope({"prompt": "hi"}))
+
+    assert response.status_code == 200
+    assert "svc-gemini-free" not in response.text
+    body = response.json()
+    assert b"svc-gemini-free" not in decode_payload(body["a"], body["c"])
 
 
 def test_chunked_response_and_reassembly(client, monkeypatch):
@@ -113,36 +138,3 @@ def test_chunked_response_and_reassembly(client, monkeypatch):
     decompressed = decode_payload(body["a"], reassembled_b64)
     assert sha256_hex(decompressed) == body["k"]
     assert json.loads(decompressed)["content"] == "x" * 5000
-
-
-def test_user_supplied_key_reaches_the_provider(client, monkeypatch):
-    fake = FakeProvider(content="answered with the caller's own key")
-    _patch_provider(monkeypatch, fake)
-
-    envelope = build_envelope({"prompt": "hi", "provider": "gemini"})
-    response = client.post("/v1/chat", json=envelope, headers={"X-Provider-Key": "user-key-123"})
-
-    assert response.status_code == 200
-    assert fake.seen_api_key == "user-key-123"
-
-
-def test_user_key_is_never_echoed_into_the_response(client, monkeypatch):
-    _patch_provider(monkeypatch, FakeProvider(content="short reply"))
-
-    envelope = build_envelope({"prompt": "hi"})
-    response = client.post("/v1/chat", json=envelope, headers={"X-Provider-Key": "user-key-123"})
-
-    # The key must not survive into anything that gets cached, chunked or logged.
-    assert "user-key-123" not in response.text
-    body = response.json()
-    assert b"user-key-123" not in decode_payload(body["a"], body["c"])
-
-
-def test_no_key_header_leaves_the_relay_key_in_charge(client, monkeypatch):
-    fake = FakeProvider(content="short reply")
-    _patch_provider(monkeypatch, fake)
-
-    response = client.post("/v1/chat", json=build_envelope({"prompt": "hi"}))
-
-    assert response.status_code == 200
-    assert fake.seen_api_key is None

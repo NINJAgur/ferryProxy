@@ -11,6 +11,8 @@ interface KeyFieldProps {
   help: string;
   value?: string;
   relayHasKey: boolean;
+  /** Hide the name/status header when the surrounding row already shows it. */
+  compact?: boolean;
   onSave: (provider: Provider, value: string) => void;
 }
 
@@ -20,7 +22,7 @@ function mask(key: string): string {
   return key.length <= 4 ? "••••" : `••••••••${key.slice(-4)}`;
 }
 
-export function KeyField({ provider, label, help, value, relayHasKey, onSave }: KeyFieldProps) {
+export function KeyField({ provider, label, help, value, relayHasKey, compact, onSave }: KeyFieldProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -29,13 +31,15 @@ export function KeyField({ provider, label, help, value, relayHasKey, onSave }: 
   }, [editing]);
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.headerRow}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={[styles.status, value ? styles.statusOwn : relayHasKey ? styles.statusRelay : styles.statusNone]}>
-          {value ? "your key" : relayHasKey ? "relay's key" : "not set"}
-        </Text>
-      </View>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+      {compact ? null : (
+        <View style={styles.headerRow}>
+          <Text style={styles.label}>{label}</Text>
+          <Text style={[styles.status, value ? styles.statusOwn : relayHasKey ? styles.statusRelay : styles.statusNone]}>
+            {value ? "your key" : relayHasKey ? "relay's key" : "not set"}
+          </Text>
+        </View>
+      )}
 
       {editing ? (
         <View style={styles.editRow}>
@@ -84,6 +88,7 @@ export function KeyField({ provider, label, help, value, relayHasKey, onSave }: 
 
 const styles = StyleSheet.create({
   wrap: { paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.divider08 },
+  wrapCompact: { paddingTop: 0, borderTopWidth: 0, marginLeft: 30 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: { fontFamily: fonts.body, fontSize: 14.5, color: colors.text },
   status: { fontFamily: fonts.body, fontSize: 11 },

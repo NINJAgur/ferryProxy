@@ -5,6 +5,7 @@ function makeMessage(overrides: Partial<MessageMetrics> = {}): MessageMetrics {
     id: "1",
     timestamp: Date.now(),
     prompt: "hi",
+    brief: false,
     rawPromptBytes: 100,
     rawResponseBytes: 400,
     compressedBytesSent: 40,

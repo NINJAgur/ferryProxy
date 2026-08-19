@@ -1,6 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { createFileStorage } from "./fileStorage";
 
 import { ThreadMessage } from "./thread";
 
@@ -41,8 +42,11 @@ function upsertActive(
   };
 }
 
-/** Chats live on the device only. Nothing is uploaded: the relay sees a prompt
- *  long enough to answer it and keeps no conversation of its own. */
+export const CHAT_FILE = "ferry-chats.json";
+
+/** Chats live on the device only, in a real file rather than key/value cache:
+ *  a conversation is a document, and cache is something the OS may clear.
+ *  Nothing is uploaded — the relay keeps no conversation of its own. */
 export const useThreadStore = create<ThreadState>()(
   persist(
     (set) => ({
@@ -89,7 +93,7 @@ export const useThreadStore = create<ThreadState>()(
     }),
     {
       name: "ferry.chats.v1",
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createFileStorage(CHAT_FILE)),
       // A message caught mid-flight when the app closed is no longer in flight.
       onRehydrateStorage: () => (state) => {
         if (!state) return;

@@ -9,13 +9,18 @@ import {
 } from "./reassemblyState";
 import { ChatRequestPlaintext, ChatResponsePlaintext, HistoryMessage, Provider } from "./types";
 
+/** Fetching one cached slice is quick; if it hasn't arrived in 8s the line dropped it. */
 export const CHUNK_FETCH_TIMEOUT_MS = 8000;
+/** The opening POST is different in kind: it waits for the model to generate the whole
+ *  answer. Gemini's Flash models think before answering and have taken 18s+ on a trivial
+ *  prompt, so holding this to the chunk timeout made every real send fail and retry. */
+export const SEND_TIMEOUT_MS = 90000;
 export const CHUNK_RETRY_BASE_DELAY_MS = 500;
 export const CHUNK_RETRY_MAX_DELAY_MS = 8000;
 export const CHUNK_RETRY_MAX_ATTEMPTS = 5;
 export const CHUNK_RETRY_JITTER = 0.2;
 export const CHUNK_FETCH_CONCURRENCY = 3;
-export const REASSEMBLY_BUDGET_MS = 60000;
+export const REASSEMBLY_BUDGET_MS = 180000;
 
 export interface SendPromptInput {
   prompt: string;
@@ -24,11 +29,14 @@ export interface SendPromptInput {
   model?: string;
   maxTokens?: number;
   brief?: boolean;
-  userKey?: string;
+  idToken?: string;
   sessionId: string;
 }
 
 export interface SendPromptMetrics {
+  /** Whether this answer was asked for briefly — the single biggest lever on
+   *  a thin line, and meaningless to compare against a full answer without it. */
+  brief: boolean;
   rawPromptBytes: number;
   rawResponseBytes: number;
   compressedBytesSent: number;
@@ -191,7 +199,15 @@ export async function sendPrompt(
   const compressedBytesSent = byteLength(JSON.stringify(envelope));
 
   return withTimeoutBudget(
-    runRequest(envelope, dispatch, startTime, rawPromptBytes, compressedBytesSent, input.userKey),
+    runRequest(
+      envelope,
+      dispatch,
+      startTime,
+      rawPromptBytes,
+      compressedBytesSent,
+      input.idToken,
+      !!input.brief
+    ),
     REASSEMBLY_BUDGET_MS,
     () => new Error("reassembly budget exceeded")
   );
@@ -203,14 +219,15 @@ async function runRequest(
   startTime: number,
   rawPromptBytes: number,
   compressedBytesSent: number,
-  userKey?: string
+  idToken?: string,
+  brief = false
 ): Promise<SendPromptResult> {
   let responseEnvelope: Awaited<ReturnType<typeof postChat>> | undefined;
   let lastError: unknown;
 
   for (let attempt = 0; attempt < CHUNK_RETRY_MAX_ATTEMPTS; attempt++) {
     try {
-      responseEnvelope = await postChat(envelope, CHUNK_FETCH_TIMEOUT_MS, userKey);
+      responseEnvelope = await postChat(envelope, SEND_TIMEOUT_MS, idToken);
       break;
     } catch (err) {
       lastError = err;
@@ -276,6 +293,7 @@ async function runRequest(
   return {
     response,
     metrics: {
+      brief,
       rawPromptBytes,
       rawResponseBytes: byteLength(decompressed),
       compressedBytesSent,

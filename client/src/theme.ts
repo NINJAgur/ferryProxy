@@ -17,6 +17,7 @@ export const colors = {
   accent400: "#b5abfc",
   accent700: "#5d5294",
   accent900: "#2b2741",
+  danger: "#ef4444",
 
   // color-mix(in srgb, #e9e9ed X%, transparent)
   text80: "rgba(233,233,237,0.8)",

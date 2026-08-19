@@ -63,7 +63,7 @@ async def check(name: str, model: str, prompt: str) -> int:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser()
-    parser.add_argument("provider", choices=["demo", "anthropic", "openai", "gemini"])
+    parser.add_argument("provider", choices=["anthropic", "openai", "gemini"])
     parser.add_argument("--model", default=None, help="override the configured model")
     parser.add_argument("--prompt", default="Reply with one short sentence confirming you are working.")
     parser.add_argument("--list-models", action="store_true", help="gemini only: list usable models")
