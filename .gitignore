@@ -24,6 +24,3 @@ client/npm-debug.*
 # OS
 .DS_Store
 Thumbs.db
-
-# Personal setup notes, not part of the project
-BILLING-SETUP.md
