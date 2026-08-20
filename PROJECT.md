@@ -503,46 +503,70 @@ replies rather than quoting a number from a single sample.
 
 ### Phase 15 — Three ways to ship one app 📦
 Distribution and billing are separate choices. RevenueCat normalises both into a
-customer id, so `receipts.py` never learns which was used and the relay is already
-store-agnostic. One interface, two providers, three build profiles.
+customer id, so `receipts.py` never learns which was used.
 
 | Target | Profile | Billing | Where it lives |
 |---|---|---|---|
 | Play | `production` (AAB) | Play Billing | Google Play |
 | Sideload | `sideload` (APK) | Web checkout | Aptoide, GitHub Releases |
-| Browser | `expo export` | Web checkout | Cloudflare Pages |
+| Browser | `expo export` | Web checkout | not deployed |
 
 - [x] **15.1** `BillingProvider` interface; `playBilling` and `webBilling` behind it
-- [x] **15.2** `chooseBilling` is a pure function and pinned by tests. It defaults to
-      the web checkout: guessing "play" for a build Play never distributed would
-      breach terms it was never listed under
-- [x] **15.3** `eas.json` profiles: `preview` (APK), `production` (AAB), `sideload`
-- [ ] **15.4** `EXPO_PUBLIC_WEB_PURCHASE_URL` — a RevenueCat Web Purchase Link
-- [ ] **15.5** Web billing has no cross-device restore. A store can be asked what
-      someone bought; a web checkout cannot, so a reinstall loses the purchase.
-      Needs the checkout email or a redemption code
+- [x] **15.2** `chooseBilling` pure and pinned by tests; defaults to the web checkout
+      because guessing "play" for an unlisted build would breach terms it was never
+      listed under
+- [x] **15.3** `eas.json` profiles: `preview`, `production`, `sideload`
+- [x] **15.4** `EXPO_PUBLIC_WEB_PURCHASE_URL` wired to a RevenueCat purchase link
+- [x] **15.6** **A real purchase works, verified end to end.** Paddle sandbox took
+      $10, RevenueCat recorded entitlement `pro` with no expiry against the right
+      customer, and the relay read it back with its secret key
+- [x] **15.7** The customer id is a **path segment**, not the query parameter
+      RevenueCat's prose describes. A link without one 404s rather than erroring,
+      so the wrong shape looked exactly like a broken link
+- [ ] **15.5** Web billing has no cross-device restore — a reinstall loses the
+      purchase. Needs the checkout email or a redemption code
 
 ### Phase 16 — Google Play 🤖
-Account approved. **The 12-tester rule applies** — confirmed in the console, 0 of 12
-opted in. Production is ~3 weeks out at best; internal testing works today.
+Account approved, AAB uploaded to internal testing. **The 12-tester rule applies**
+— confirmed in the console. Production is ~3 weeks out; internal testing works now.
 
 - [x] **16.1** Play Console account approved
-- [ ] **16.2** Payments profile — no purchase works until approved, and it is the
-      slowest step. Start it early, it blocks nothing else
-- [ ] **16.3** Upload a build to **internal testing** — puts Ferry on a real phone
-      today, and Play will not let in-app products be created until a build with the
-      billing library exists
+- [x] **16.3** AAB built (`eas build -p android --profile production`) and uploaded
+      to the internal testing track
+- [x] **16.8** Store listing: descriptions, icon, feature graphic, screenshots,
+      content rating, data safety, sign-in details, privacy and deletion URLs
+- [ ] **16.2** Google Payments merchant profile — no purchase works until approved
 - [ ] **16.4** Managed (non-consumable) product, priced
-- [ ] **16.5** RevenueCat: Play app, service account JSON, entitlement named `pro`
-- [ ] **16.6** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` in `eas.json`, `REVENUECAT_API_KEY`
-      on Render
-- [ ] **16.7** Recruit 12 testers and start the 14-day closed test
-- [ ] **16.8** Store listing, data safety form, content rating, privacy policy URL
+- [ ] **16.5** RevenueCat: add a **Play** app, service account JSON, attach to `pro`
+- [ ] **16.6** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` (`goog_…`) in `eas.json`
+- [ ] **16.7** Twelve testers, fourteen continuous days on a closed track
 - [ ] **16.9** Apply for production access
 
-### Phase 17 — iOS, postponed 🍎
-Deliberately parked: $99/yr, and no iPhone to test on. The code already reads an
-iOS RevenueCat key, so this is account setup rather than development.
+### Phase 17 — Before going live ⚠️
+Everything here is known and unfixed. None of it blocks a release; all of it
+decides whether the release survives contact with real users.
+
+- [ ] **17.1** **Paddle account verification.** Identity and bank details. Nothing
+      can be sold on the live account until it clears, and the domain
+      `pay.rev.cat` needs manual approval — up to 5–7 business days
+- [ ] **17.2** **Render's free tier sleeps and has no disk.** A cold start makes the
+      first question hang ~40s, and every deploy wipes purchases and usage counters.
+      Fatal once real purchases exist
+- [ ] **17.3** **A custom domain.** uBlock blocks `*.onrender.com` outright; DNS
+      filters and corporate networks will too — the users Ferry is aimed at
+- [ ] **17.4** **The pricing is structurally wrong.** A one-time payment against a
+      monthly renewing allowance means a heavy user costs money every month
+      forever against a single payment. Either price for a lifetime, or make the
+      allowance a fixed pool. 12.2 — cost per answer — is the data that settles it
+- [ ] **17.5** **Ferry fails its own 90% packet-loss proof**: 0/10 answers
+      reassembled, against 10/10 with no loss. 40 attempts with a 1s backoff cap
+      gives 5/5; the constants are deliberately unchanged
+- [ ] **17.6** **Never run on a phone.** Every test so far has been a desktop
+      browser. 14.2 remains open
+
+### Phase 18 — iOS, postponed 🍎
+$99/yr, and no iPhone to test on. The code already reads an iOS RevenueCat key,
+so this is account setup rather than development.
 
 ---
 
