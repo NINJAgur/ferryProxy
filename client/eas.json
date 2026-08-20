@@ -8,19 +8,38 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://127.0.0.1:8000"
+        "EXPO_PUBLIC_API_URL": "http://127.0.0.1:8000",
+        "EXPO_PUBLIC_BILLING": "play"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com",
+        "EXPO_PUBLIC_BILLING": "play"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com",
+        "EXPO_PUBLIC_BILLING": "play"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "sideload": {
+      "extends": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com",
+        "EXPO_PUBLIC_BILLING": "web"
       }
     }
   },

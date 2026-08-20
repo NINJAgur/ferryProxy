@@ -3,12 +3,16 @@ from typing import List, Optional
 from app.config import settings
 from app.protocol.schemas import ModelInfo, Provider, Tier
 
-# The models Ferry offers, and what it takes to reach each one.
+# The models Ferry offers, grouped by provider.
 #
 # Keys are never per-user. Four service-account keys are configured on the relay —
 # one Gemini key for the free tier, one for the paid Gemini models, plus OpenAI and
 # Anthropic — and the relay picks whichever the chosen model needs. Nothing about a
 # credential ever reaches the device.
+#
+# A provider offers several variants because they differ enormously in what they
+# cost per answer: a cheap one is the right default and an expensive one should be
+# a deliberate choice, not something the app picks on someone's behalf.
 
 
 class CatalogueEntry:
@@ -29,22 +33,19 @@ class CatalogueEntry:
 
 def _entries() -> List[CatalogueEntry]:
     return [
-        CatalogueEntry(
-            settings.gemini_free_model,
-            "Gemini Flash",
-            "gemini",
-            "free",
-            "Fast and free, for everyone",
-        ),
-        CatalogueEntry(
-            settings.gemini_paid_model,
-            "Gemini Pro",
-            "gemini",
-            "paid",
-            "Google's stronger model",
-        ),
-        CatalogueEntry(settings.openai_model, "GPT", "openai", "paid", "OpenAI's flagship"),
-        CatalogueEntry(settings.anthropic_model, "Claude", "anthropic", "paid", "Anthropic's flagship"),
+        # Gemini. The free variant is the only free model Ferry has, and it is the
+        # one served by the unbilled-tier key — see _key_for.
+        CatalogueEntry(settings.gemini_free_model, "Flash", "gemini", "free", "Fast, and free for everyone"),
+        CatalogueEntry("gemini-flash-latest", "Flash (latest)", "gemini", "paid", "Newer Flash, billed"),
+        CatalogueEntry(settings.gemini_paid_model, "Pro", "gemini", "paid", "Google's stronger model"),
+        # Claude, cheapest first.
+        CatalogueEntry("claude-haiku-4-5-20251001", "Haiku 4.5", "anthropic", "paid", "Quick and inexpensive"),
+        CatalogueEntry("claude-sonnet-5", "Sonnet 5", "anthropic", "paid", "The balanced one"),
+        CatalogueEntry(settings.anthropic_model, "Opus 5", "anthropic", "paid", "Anthropic's strongest"),
+        # GPT, cheapest first.
+        CatalogueEntry("gpt-5.4-mini", "5.4 mini", "openai", "paid", "Quick and inexpensive"),
+        CatalogueEntry(settings.openai_model, "4o", "openai", "paid", "Solid all-rounder"),
+        CatalogueEntry("gpt-5.5", "5.5", "openai", "paid", "OpenAI's strongest"),
     ]
 
 
@@ -58,8 +59,8 @@ def _key_for(entry: CatalogueEntry) -> Optional[str]:
 
 
 def catalogue(subscribed: bool) -> List[ModelInfo]:
-    """What the caller may use. Anonymous and signed-out-but-unsubscribed callers
-    see the same thing: the free model is genuinely free, with no account needed."""
+    """What the caller may use. Anonymous and unsubscribed callers see the same
+    thing: the free model is genuinely free, with no account needed."""
     out: List[ModelInfo] = []
     for entry in _entries():
         configured = bool(_key_for(entry))

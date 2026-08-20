@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import { groupByProvider, groupUnlocked, PROVIDER_NAME, providerStatus } from "../modelGroups";
 import { EntitlementPhase } from "../state/entitlementStore";
 import { colors, fonts } from "../theme";
 import { ModelInfo } from "../transport/types";
@@ -16,6 +17,8 @@ interface HandshakePanelProps {
   unlocked: boolean;
   models: ModelInfo[];
   error: string | null;
+  /** What the last purchase or restore did, success or failure. */
+  note: string | null;
   busy: boolean;
   onUnlock: () => void;
   onRestore: () => void;
@@ -23,14 +26,6 @@ interface HandshakePanelProps {
   onContinue: () => void;
 }
 
-const REASON_TEXT: Record<ModelInfo["reason"], string> = {
-  free: "Free",
-  subscribed: "Included in Pro",
-  needs_subscription: "Upgrade to Pro",
-  // Deliberately not an upsell: the relay has no key for this model, so selling
-  // it would be selling something that cannot be delivered.
-  unavailable: "Temporarily unavailable",
-};
 
 export function HandshakePanel({
   network,
@@ -39,6 +34,7 @@ export function HandshakePanel({
   unlocked: purchased,
   models,
   error,
+  note,
   busy,
   onUnlock,
   onRestore,
@@ -46,8 +42,11 @@ export function HandshakePanel({
   onContinue,
 }: HandshakePanelProps) {
   const working = busy || phase === "loading";
-  const unlocked = models.filter((m) => m.unlocked);
-  const locked = models.filter((m) => !m.unlocked);
+  // One row per provider, never one per version. This screen answers "what can I
+  // reach"; the version is chosen in the chat, next to what it affects.
+  const groups = groupByProvider(models);
+  const unlocked = groups.filter(groupUnlocked);
+  const locked = groups.filter((g) => !groupUnlocked(g));
 
   return (
     <View style={styles.container}>
@@ -87,50 +86,60 @@ export function HandshakePanel({
       {phase === "ready" ? (
         <>
           <Text style={styles.sectionTitle}>Your models</Text>
-          {unlocked.map((m) => (
-            <View key={m.id} style={styles.modelRow}>
+          {unlocked.map((g) => (
+            <View key={g.provider} style={styles.modelRow}>
               <View style={styles.tick}>
                 <Text style={styles.tickMark}>✓</Text>
               </View>
-              <Text style={styles.modelName}>{m.label}</Text>
-              <Text style={styles.modelNote}>{REASON_TEXT[m.reason]}</Text>
+              <Text style={styles.modelName}>{PROVIDER_NAME[g.provider]}</Text>
+              <Text style={styles.modelNote}>{providerStatus(g)}</Text>
             </View>
           ))}
-          {locked.map((m) => (
-            <View key={m.id} style={styles.modelRow}>
+          {locked.map((g) => (
+            <View key={g.provider} style={styles.modelRow}>
               <View style={styles.lockCircle} />
-              <Text style={[styles.modelName, styles.modelNameLocked]}>{m.label}</Text>
-              <Text style={styles.modelNote}>{REASON_TEXT[m.reason]}</Text>
+              <Text style={[styles.modelName, styles.modelNameLocked]}>
+                {PROVIDER_NAME[g.provider]}
+              </Text>
+              <Text style={styles.modelNote}>{providerStatus(g)}</Text>
             </View>
           ))}
 
-          {!purchased && locked.some((m) => m.reason === "needs_subscription") ? (
-            <View style={styles.upsell}>
-              <Text style={styles.upsellText}>
-                The stronger models are billed per answer, so they come with a one-off purchase.
-                Gemini Flash stays free either way.
-              </Text>
-              <Button
-                label="Unlock all models"
-                onPress={onUnlock}
-                disabled={working}
-                height={48}
-                fontSize={15}
-              />
-              <Button
-                label="Restore purchases"
-                onPress={onRestore}
-                disabled={working}
-                variant="ghost"
-                height={44}
-                fontSize={14}
-              />
+          {/* Restore is always reachable, even once unlocked: both stores require
+              it, and someone whose entitlement did not come back needs a way to
+              ask for it. Only the offer to buy disappears after buying. */}
+          <View style={styles.upsell}>
+            {!purchased && locked.length > 0 ? (
+              <>
+                <Text style={styles.upsellText}>
+                  The stronger models are billed per answer, so they come with a one-off purchase.
+                  Gemini Flash stays free either way.
+                </Text>
+                <Button
+                  label="Unlock all models"
+                  onPress={onUnlock}
+                  disabled={working}
+                  height={48}
+                  fontSize={15}
+                />
+              </>
+            ) : null}
+            <Button
+              label="Restore purchases"
+              onPress={onRestore}
+              disabled={working}
+              variant="ghost"
+              height={44}
+              fontSize={14}
+            />
+            {note ? <Text style={styles.note}>{note}</Text> : null}
+            {!purchased ? (
               <Text style={styles.configNote}>
                 Bought it already, or on a new phone? Restore brings it back — the store keeps the
                 record, so there is no account to sign into.
               </Text>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </>
       ) : null}
 
@@ -250,6 +259,7 @@ const styles = StyleSheet.create({
   upsell: { marginTop: 16, gap: 10 },
   upsellText: { fontFamily: fonts.body, fontSize: 12.5, color: colors.text55, lineHeight: 18.75 },
   error: { fontFamily: fonts.body, fontSize: 12.5, color: colors.danger, marginTop: 18, lineHeight: 18 },
+  note: { fontFamily: fonts.body, fontSize: 12.5, color: colors.accent400, lineHeight: 18 },
   configNote: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text45, lineHeight: 17, marginTop: 4 },
   spacer: { height: 24 },
   actions: { gap: 10 },

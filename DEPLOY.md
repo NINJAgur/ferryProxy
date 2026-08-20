@@ -58,6 +58,18 @@ Done: `client/eas.json` points `preview` and `production` at
   **Change these before the first build if you want a different id** — they cannot
   be changed after a store release.
 
+Four build profiles, because where an app is distributed decides how it may take
+money. Play requires Play Billing for anything it distributes; an APK from
+anywhere else, and Ferry in a browser, use a hosted web checkout instead. The
+relay never learns which was used — RevenueCat normalises both to a customer id.
+
+| Profile | Output | Billing | For |
+|---|---|---|---|
+| `development` | dev client | Play | a relay on your own machine |
+| `preview` | APK | Play | installing on your own phone |
+| `production` | AAB | Play | the Play Console |
+| `sideload` | APK | web checkout | Aptoide, GitHub Releases |
+
 ```
 npm install -g eas-cli
 eas login
@@ -70,22 +82,30 @@ build against a real store product.
 
 ## 4. Before a store submission
 
-- **The purchase is wired but unproven.** `client/src/purchases.ts` uses
-  RevenueCat on a real build, and falls back to the relay's dev endpoint on web
-  and in Expo Go, where the native module does not exist. It cannot work until
-  all of these are true, and none of them can be tested from a dev machine:
-  - An App Store Connect **non-consumable** product exists, with a price.
+- **The purchase is wired but unproven.** `client/src/billing/` holds the two
+  providers; on web and in Expo Go the native module does not exist, so it falls
+  back to the relay's dev endpoint, which production refuses. A real purchase has
+  never run. It cannot until all of these are true:
+  - A Play Console **managed product** exists, with a price.
   - RevenueCat has an entitlement called exactly `pro`, attached to that product.
-  - `EXPO_PUBLIC_REVENUECAT_IOS_KEY` is set for the build, and
+  - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` is set for the build, and
     `REVENUECAT_API_KEY` (the secret key) is set on the relay.
-  - Apple's **Paid Applications Agreement**, banking and tax forms are accepted.
-    Apple blocks every purchase until they are, and this is the slowest step.
+  - A Google Payments **merchant profile** is approved. Play blocks every purchase
+    until it is, and this is the slowest step.
+  - **12 testers for 14 continuous days** on a closed track, before a personal
+    account can even apply for production access.
 - Restore Purchases must work — both stores require it, and it is what removes the
   need for user accounts.
 - A privacy policy URL is required by both stores. Ferry sends prompts to the
   relay, which forwards them to a model provider and keeps a few minutes of the
   answer's chunks; it stores no conversation of its own.
 - Disclose the add-on: what it unlocks, the monthly answer allowance, and the price.
+
+## The store listing
+
+`client/assets/play-icon-512.png` and `play-feature-1024x500.png` are for the
+Play Console. Everything else in `assets/` ships inside the app and is never
+uploaded. Screenshots have to be real captures — there is nothing to generate.
 
 ## Known limits at this version
 

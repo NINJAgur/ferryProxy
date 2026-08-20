@@ -501,26 +501,56 @@ replies rather than quoting a number from a single sample.
 - [ ] **14.4** Delete orphans: `TunnelButton.tsx`, `ProviderSelector.tsx`, and
       `server/app/db.py` + `models.py` from the abandoned database approach
 
-### Phase 15 — App Store submission 🍎
-- [ ] **15.1** Apple Developer Program, $99/yr — enrolment takes 24–48h
-- [ ] **15.2** Register `com.ninjagur.ferry` and create the App Store Connect record.
-      **The bundle id is permanent after first release** — change it now or never
-- [ ] **15.3** A privacy policy at a public URL, stating that prompts reach the relay
-      and are forwarded to Anthropic, OpenAI and Google
-- [ ] **15.4** Screenshots, description, keywords, support URL, 1024×1024 icon
-- [ ] **15.5** Age rating and a content note — the answers are AI-generated
-- [ ] **15.6** `eas build -p ios --profile production`, then `eas submit`
-- [ ] **15.7** Review notes explaining what Ferry is for; a thin API wrapper draws
-      scrutiny under Guideline 4.2, and the low-bandwidth transport is the answer
+### Phase 15 — Three ways to ship one app 📦
+Distribution and billing are separate choices. RevenueCat normalises both into a
+customer id, so `receipts.py` never learns which was used and the relay is already
+store-agnostic. One interface, two providers, three build profiles.
+
+| Target | Profile | Billing | Where it lives |
+|---|---|---|---|
+| Play | `production` (AAB) | Play Billing | Google Play |
+| Sideload | `sideload` (APK) | Web checkout | Aptoide, GitHub Releases |
+| Browser | `expo export` | Web checkout | Cloudflare Pages |
+
+- [x] **15.1** `BillingProvider` interface; `playBilling` and `webBilling` behind it
+- [x] **15.2** `chooseBilling` is a pure function and pinned by tests. It defaults to
+      the web checkout: guessing "play" for a build Play never distributed would
+      breach terms it was never listed under
+- [x] **15.3** `eas.json` profiles: `preview` (APK), `production` (AAB), `sideload`
+- [ ] **15.4** `EXPO_PUBLIC_WEB_PURCHASE_URL` — a RevenueCat Web Purchase Link
+- [ ] **15.5** Web billing has no cross-device restore. A store can be asked what
+      someone bought; a web checkout cannot, so a reinstall loses the purchase.
+      Needs the checkout email or a redemption code
+
+### Phase 16 — Google Play 🤖
+Account approved. **The 12-tester rule applies** — confirmed in the console, 0 of 12
+opted in. Production is ~3 weeks out at best; internal testing works today.
+
+- [x] **16.1** Play Console account approved
+- [ ] **16.2** Payments profile — no purchase works until approved, and it is the
+      slowest step. Start it early, it blocks nothing else
+- [ ] **16.3** Upload a build to **internal testing** — puts Ferry on a real phone
+      today, and Play will not let in-app products be created until a build with the
+      billing library exists
+- [ ] **16.4** Managed (non-consumable) product, priced
+- [ ] **16.5** RevenueCat: Play app, service account JSON, entitlement named `pro`
+- [ ] **16.6** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` in `eas.json`, `REVENUECAT_API_KEY`
+      on Render
+- [ ] **16.7** Recruit 12 testers and start the 14-day closed test
+- [ ] **16.8** Store listing, data safety form, content rating, privacy policy URL
+- [ ] **16.9** Apply for production access
+
+### Phase 17 — iOS, postponed 🍎
+Deliberately parked: $99/yr, and no iPhone to test on. The code already reads an
+iOS RevenueCat key, so this is account setup rather than development.
 
 ---
 
 ## 6. Next Steps
 
-1. **12.7** — enable billing on ferry-free. The app is capped at 20 answers a day
-   across all users until this is done
-2. **12.6** — a free-tier cap, before that key can be drained by anyone
-3. **11.1 / 11.7** — Apple enrolment and the paid-apps agreement. Slowest step, and
-   nothing about the purchase can be tested until it exists
-4. **14.2** — an EAS build on a real phone over mobile data
-5. **13.11 / 13.12** — a host with a disk, and a domain that ad blockers do not eat
+1. **16.3 / 14.2** — an EAS build on the Pixel via internal testing. Nothing else
+   is worth deciding before Ferry has run on a real phone on a real connection
+2. **16.2 / 16.7** — payments profile and 12 testers. Both slow, both independent,
+   neither blocks anything technical
+3. **15.4** — a web purchase link, if sideload distribution is wanted before Play
+4. **13.11 / 13.12** — a host with a disk, and a domain ad blockers do not eat

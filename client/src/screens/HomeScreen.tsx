@@ -28,7 +28,7 @@ import {
 import { PendingSend, ThreadMessage } from "../state/thread";
 import { useThreadStore } from "../state/threadStore";
 import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore";
-import { buyAddOn, initPurchases, restorePurchases } from "../purchases";
+import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
@@ -73,7 +73,7 @@ export function HomeScreen() {
   const [relay, setRelayState] = useState<CheckState>(launch.relay);
   const [dismissedSetup, setDismissedSetup] = useState(launch.setupDismissed);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
 
   const addMetric = useMetricsStore((s) => s.addMessage);
   const entitlement = useEntitlementStore();
@@ -90,6 +90,19 @@ export function HomeScreen() {
   const dismissSetup = () => {
     launch.setupDismissed = true;
     setDismissedSetup(true);
+  };
+
+  /**
+   * Picking a different model starts a fresh chat.
+   *
+   * Every send carries the conversation so far, so continuing a thread across a
+   * switch means paying to re-send another model's answers over a line that may
+   * barely carry the question. Only a deliberate choice does this — the default
+   * model chosen at launch goes through setModelId and leaves the chat alone.
+   */
+  const chooseModel = (next: string) => {
+    if (next !== modelId && messages.length > 0) startNew(generateId());
+    setModelId(next);
   };
 
   const refreshQueue = () => void loadQueue().then(setQueued);
@@ -239,18 +252,29 @@ export function HomeScreen() {
   }
 
   async function runPurchase(
-    step: () => Promise<{ receipt: string | null; error?: string }>,
+    step: () => Promise<{ receipt: string | null; error?: string; pending?: boolean }>,
     nothingHappened: string
   ) {
     setPurchaseBusy(true);
-    setPurchaseError(null);
+    setPurchaseNote(null);
     const result = await step();
+    if (result.pending) {
+      // A web checkout opens a browser, so there is no result to wait for. Say
+      // where the purchase went rather than reporting a failure that has not
+      // happened; coming back and pressing Restore picks it up.
+      setPurchaseNote("Finish the purchase in your browser, then press Restore purchases.");
+      setPurchaseBusy(false);
+      return;
+    }
     // The relay decides what a receipt is worth, so reload rather than trusting
     // the store's answer — a restore that finds nothing must stay locked. Which
     // means the reload, not the receipt, is what says whether anything changed.
     if (result.receipt) await entitlement.load(result.receipt);
-    if (result.error) setPurchaseError(result.error);
-    else if (!useEntitlementStore.getState().unlocked) setPurchaseError(nothingHappened);
+    // Say something either way. Succeeding silently looks identical to a button
+    // that does nothing, which is how this read when the models were already on.
+    if (result.error) setPurchaseNote(result.error);
+    else if (useEntitlementStore.getState().unlocked) setPurchaseNote("Everything is unlocked.");
+    else setPurchaseNote(nothingHappened);
     setPurchaseBusy(false);
   }
 
@@ -272,7 +296,8 @@ export function HomeScreen() {
           phase={entitlement.phase}
           unlocked={entitlement.unlocked}
           models={entitlement.models}
-          error={entitlement.error ?? purchaseError}
+          error={entitlement.error}
+          note={purchaseNote}
           busy={purchaseBusy}
           onUnlock={() => void runPurchase(buyAddOn, "That didn't go through. Nothing was charged.")}
           onRestore={() =>
@@ -321,7 +346,12 @@ export function HomeScreen() {
       </View>
 
       <View style={styles.modelRow}>
-        <ModelPicker value={modelId} onChange={setModelId} disabled={busy} models={entitlement.models} />
+        <ModelPicker
+          value={modelId}
+          onChange={chooseModel}
+          disabled={busy}
+          models={entitlement.models}
+        />
       </View>
 
       <ScrollView style={styles.thread} contentContainerStyle={styles.threadContent}>

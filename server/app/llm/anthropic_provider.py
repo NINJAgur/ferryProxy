@@ -7,6 +7,16 @@ from app.llm.base import LLMConfigError, LLMProviderError, LLMResult
 from app.protocol.schemas import HistoryMessage
 
 
+def _supports_effort(model: str) -> bool:
+    """Whether this model accepts the effort parameter.
+
+    Haiku does not, and says so with a 400 rather than ignoring it. Named by what
+    is known to refuse it, so a model added later gets the parameter by default
+    and fails loudly instead of silently losing the setting.
+    """
+    return "haiku" not in model
+
+
 class AnthropicProvider:
     def __init__(self) -> None:
         self._client: Optional[AsyncAnthropic] = None
@@ -35,13 +45,21 @@ class AnthropicProvider:
         messages = [{"role": h.role, "content": h.content} for h in history]
         messages.append({"role": "user", "content": prompt})
 
+        chosen = model or settings.anthropic_model
+        kwargs = {}
+        # Not every model takes it — Haiku 4.5 rejects the request outright rather
+        # than ignoring it, so asking for effort where it is not supported costs
+        # the whole answer.
+        if _supports_effort(chosen):
+            kwargs["output_config"] = {"effort": settings.anthropic_effort}
+
         try:
             response = await client.messages.create(
-                model=model or settings.anthropic_model,
+                model=chosen,
                 max_tokens=max_tokens,
                 messages=messages,
-                output_config={"effort": settings.anthropic_effort},
                 stream=False,
+                **kwargs,
             )
         except (APIConnectionError, APIStatusError) as exc:
             raise LLMProviderError(f"Anthropic request failed: {exc}") from exc

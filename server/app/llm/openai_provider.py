@@ -7,6 +7,16 @@ from app.llm.base import LLMConfigError, LLMProviderError, LLMResult
 from app.protocol.schemas import HistoryMessage
 
 
+def _token_limit_param(model: str) -> str:
+    """What this model calls its output cap.
+
+    The GPT-5 family rejects max_tokens and requires max_completion_tokens; older
+    models only understand the original name. Sending the wrong one is a 400, not
+    a warning, so the answer is lost either way.
+    """
+    return "max_completion_tokens" if model.startswith("gpt-5") else "max_tokens"
+
+
 class OpenAIProvider:
     def __init__(self) -> None:
         self._client: Optional[AsyncOpenAI] = None
@@ -33,12 +43,13 @@ class OpenAIProvider:
         messages = [{"role": h.role, "content": h.content} for h in history]
         messages.append({"role": "user", "content": prompt})
 
+        chosen = model or settings.openai_model
         try:
             response = await client.chat.completions.create(
-                model=model or settings.openai_model,
-                max_tokens=max_tokens,
+                model=chosen,
                 messages=messages,
                 stream=False,
+                **{_token_limit_param(chosen): max_tokens},
             )
         except (APIConnectionError, APIStatusError) as exc:
             raise LLMProviderError(f"OpenAI request failed: {exc}") from exc

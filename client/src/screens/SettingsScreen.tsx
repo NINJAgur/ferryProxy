@@ -5,9 +5,10 @@ import { FadingRule } from "../components/FadingRule";
 import { PressState } from "../components/pressState";
 import { Toggle } from "../components/Toggle";
 import { Button } from "../components/Button";
+import { groupByProvider, groupUnlocked, PROVIDER_NAME, providerStatus } from "../modelGroups";
 import { chatFileLocation } from "../state/fileStorage";
 import { useEntitlementStore } from "../state/entitlementStore";
-import { buyAddOn, restorePurchases } from "../purchases";
+import { buyAddOn, restorePurchases } from "../billing";
 import { CHAT_FILE, useThreadStore } from "../state/threadStore";
 import { useMetricsStore } from "../state/metricsStore";
 import { SettingsValues, useSettingsStore } from "../state/settingsStore";
@@ -87,17 +88,14 @@ export function SettingsScreen() {
             ? "Unlocked — every model is included."
             : "Gemini Flash is free. Claude and GPT are billed per answer, so they come with a one-off purchase."}
         </Text>
-        {entitlement.models.map((m) => (
-          <View key={m.id} style={styles.connRow}>
-            <Text style={[styles.connLabel, !m.unlocked && styles.connLabelLocked]}>{m.label}</Text>
-            <Text style={[styles.connStatus, !m.unlocked && styles.connStatusOff]}>
-              {m.reason === "free"
-                ? "Free"
-                : m.unlocked
-                  ? "Included in Pro"
-                  : m.reason === "needs_subscription"
-                    ? "Upgrade to Pro"
-                    : "Temporarily unavailable"}
+        {/* By provider, not by version: the version is chosen in the chat. */}
+        {groupByProvider(entitlement.models).map((g) => (
+          <View key={g.provider} style={styles.connRow}>
+            <Text style={[styles.connLabel, !groupUnlocked(g) && styles.connLabelLocked]}>
+              {PROVIDER_NAME[g.provider]}
+            </Text>
+            <Text style={[styles.connStatus, !groupUnlocked(g) && styles.connStatusOff]}>
+              {providerStatus(g)}
             </Text>
           </View>
         ))}
@@ -109,7 +107,7 @@ export function SettingsScreen() {
           </Text>
         ) : null}
         <View style={styles.planAction}>
-          {!entitlement.unlocked && entitlement.models.some((m) => m.reason === "needs_subscription") ? (
+          {!entitlement.unlocked && entitlement.models.some((m) => !m.unlocked) ? (
             <Button
               label="Unlock all models"
               onPress={() => void purchase(buyAddOn)}
@@ -117,15 +115,15 @@ export function SettingsScreen() {
               fontSize={14}
             />
           ) : null}
-          {!entitlement.unlocked ? (
-            <Button
-              label="Restore purchases"
-              onPress={() => void purchase(restorePurchases)}
-              variant="ghost"
-              height={44}
-              fontSize={14}
-            />
-          ) : null}
+          {/* Always available: the stores require it, and it is how someone
+              recovers an entitlement that did not come back on its own. */}
+          <Button
+            label="Restore purchases"
+            onPress={() => void purchase(restorePurchases)}
+            variant="ghost"
+            height={44}
+            fontSize={14}
+          />
         </View>
         <Text style={styles.storageNote}>
           Ferry holds the model accounts. There are no API keys to manage here, and none is ever
