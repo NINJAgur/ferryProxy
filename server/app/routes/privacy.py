@@ -1,0 +1,97 @@
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+from app.config import settings
+
+router = APIRouter()
+
+# Served from the relay because it is the one thing Ferry already has a stable
+# public address for, and the stores require the policy to live at a URL.
+#
+# Every claim here is checked against what the code does. Anything that stops
+# being true is a false statement to a store and to a user, so this changes when
+# the storage does.
+_PAGE = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ferry — Privacy Policy</title>
+<style>
+  :root {{ color-scheme: dark; }}
+  body {{ margin:0; padding:2.5rem 1.25rem 4rem; background:#161826; color:#e9e9ed;
+         font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }}
+  main {{ max-width:44rem; margin:0 auto; }}
+  h1 {{ font-size:1.9rem; margin:0 0 .35rem; letter-spacing:-.02em; }}
+  h2 {{ font-size:1.1rem; margin:2.2rem 0 .5rem; color:#b5abfc; }}
+  p, li {{ color:#c9c9d6; }}
+  .sub {{ color:#8b8ba7; margin:0 0 2rem; }}
+  ul {{ padding-left:1.2rem; }}
+  a {{ color:#b5abfc; }}
+  code {{ background:#1e2036; padding:.1rem .35rem; border-radius:4px; font-size:.9em; }}
+</style></head><body><main>
+
+<h1>Ferry — Privacy Policy</h1>
+<p class="sub">Last updated {updated}</p>
+
+<p>Ferry has no user accounts. You are never asked to sign in, and we hold no name,
+email address or password for you.</p>
+
+<h2>What leaves your device</h2>
+<p>When you ask a question, the text of that question and the earlier messages in
+that conversation are sent to Ferry's relay server, which forwards them to the AI
+provider you selected:</p>
+<ul>
+  <li><a href="https://ai.google.dev/gemini-api/terms">Google (Gemini)</a></li>
+  <li><a href="https://openai.com/policies/privacy-policy">OpenAI (GPT)</a></li>
+  <li><a href="https://www.anthropic.com/legal/privacy">Anthropic (Claude)</a></li>
+</ul>
+<p>Their handling of that text is governed by their own policies, linked above.</p>
+
+<h2>What the relay keeps</h2>
+<ul>
+  <li><strong>Pieces of an answer</strong>, for about {ttl} minutes, so a piece lost
+      on a weak connection can be fetched again. They are then discarded.</li>
+  <li><strong>A device identifier</strong> generated at random by the app. It is not
+      linked to you, your phone's hardware, or any account, and reinstalling the app
+      produces a new one. It exists only to count free answers so the free tier is
+      not exhausted by one device.</li>
+  <li><strong>A purchase identifier</strong>, if you buy the add-on, along with how
+      many paid answers you have used this month. This comes from the app store, not
+      from us.</li>
+</ul>
+<p>The relay keeps no record of your conversations.</p>
+
+<h2>What stays on your device</h2>
+<p>Your chats are written to a file on your own device and are not uploaded. Your
+settings and the bandwidth figures shown on the Data screen are also local. Deleting
+them in Settings, or uninstalling Ferry, removes them.</p>
+
+<h2>What we do not do</h2>
+<ul>
+  <li>No advertising, and no advertising identifiers.</li>
+  <li>No analytics or tracking software.</li>
+  <li>No selling or sharing of data with anyone beyond the AI provider needed to
+      answer your question.</li>
+  <li>No location, contacts, photos, microphone or camera access.</li>
+</ul>
+
+<h2>Children</h2>
+<p>Ferry is not directed at children under 13 and we do not knowingly collect data
+from them.</p>
+
+<h2>Contact</h2>
+<p>Questions, or a request to delete anything held about you:
+<a href="{contact}">{contact}</a></p>
+
+</main></body></html>
+"""
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def privacy() -> HTMLResponse:
+    return HTMLResponse(
+        _PAGE.format(
+            updated=settings.privacy_updated,
+            ttl=max(1, settings.cache_ttl_seconds // 60),
+            contact=settings.privacy_contact,
+        )
+    )

@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     # native app sends no Origin at all, so this only constrains web.
     cors_allow_origins: str = "*"
 
+    # Shown on the public privacy policy the stores require. A public issue
+    # tracker rather than a personal address, so the contact is not someone's inbox.
+    privacy_contact: str = "https://github.com/NINJAgur/ferryProxy/issues"
+    privacy_updated: str = "20 August 2026"
+
     # Where purchases and this month's usage are kept. Hosts give a container an
     # ephemeral filesystem, so in production this must point inside a mounted
     # volume or every deploy silently resets everyone's allowance.

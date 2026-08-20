@@ -7,6 +7,7 @@ from app.logging_config import configure_logging
 from app.routes.chat import router as chat_router
 from app.routes.chunks import router as chunks_router
 from app.routes.entitlement import router as entitlement_router
+from app.routes.privacy import router as privacy_router
 
 configure_logging()
 
@@ -25,6 +26,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(chunks_router)
 app.include_router(entitlement_router)
+app.include_router(privacy_router)
 
 
 @app.get("/health")
