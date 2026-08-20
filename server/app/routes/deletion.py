@@ -29,8 +29,7 @@ _PAGE = """<!doctype html>
 <p class="sub">Ferry — last updated {updated}</p>
 
 <p>Ferry has no accounts, so there is no profile to close. Almost everything Ferry
-holds is on your own device and you can remove it yourself, at any time, without
-asking us.</p>
+holds is on your own device, and you can remove it yourself at any time.</p>
 
 <h2>On your device — immediate</h2>
 <p>Open <strong>Settings</strong> in the app:</p>
@@ -46,8 +45,7 @@ below.</p>
 <p>The relay does not store your conversations. It holds only:</p>
 <ul>
   <li><strong>Pieces of an answer</strong>, for about {ttl} minutes, so a piece lost on
-      a weak connection can be fetched again. These delete themselves; nothing you do
-      is needed.</li>
+      a weak connection can be fetched again. These expire on their own.</li>
   <li><strong>A random identifier</strong> created by the app, with a count of how many
       free answers it has used this month. It is not linked to you, your account or
       your device's hardware.</li>
@@ -60,11 +58,9 @@ below.</p>
   <li>Contact us at <a href="{contact}">{contact}</a> and ask for deletion.</li>
   <li>We will remove the identifier and its usage counts.</li>
 </ol>
-<p>Two things worth knowing before you ask. Deleting the record of a purchase does
-not refund it, and because the purchase is held by Google Play rather than by us,
-<em>Restore purchases</em> may bring the entitlement back. Deleting the free-tier
-counter does not grant extra free answers — a new identifier starts a new month's
-allowance either way.</p>
+<p>Deleting a purchase record does not refund it, and since the store holds the
+purchase rather than we do, <em>Restore purchases</em> may bring it back. Deleting
+the free-tier counter does not grant extra free answers.</p>
 
 <h2>What we never had</h2>
 <p>No name, email address, password, phone number, location, contacts or payment

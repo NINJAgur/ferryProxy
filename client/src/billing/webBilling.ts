@@ -36,8 +36,11 @@ export const webBilling: BillingProvider = {
     // relay — and it is the only way to exercise the flow before a store exists.
     if (!PURCHASE_URL) return devGrant();
 
+    // RevenueCat takes the customer id as a trailing path segment, not a query
+    // parameter. A link without one 404s rather than erroring, so getting this
+    // shape wrong looks exactly like a broken purchase link.
     const id = await deviceId();
-    const url = `${PURCHASE_URL}${PURCHASE_URL.includes("?") ? "&" : "?"}app_user_id=${encodeURIComponent(id)}`;
+    const url = `${PURCHASE_URL.replace(/\/+$/, "")}/${encodeURIComponent(id)}`;
 
     try {
       await Linking.openURL(url);

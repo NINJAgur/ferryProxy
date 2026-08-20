@@ -39,7 +39,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com",
-        "EXPO_PUBLIC_BILLING": "web"
+        "EXPO_PUBLIC_BILLING": "web",
+        "EXPO_PUBLIC_WEB_PURCHASE_URL": "https://pay.rev.cat/qpcpjdqivpksouwz/"
       }
     }
   },

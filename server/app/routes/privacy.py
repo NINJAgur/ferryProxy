@@ -32,8 +32,8 @@ _PAGE = """<!doctype html>
 <h1>Ferry — Privacy Policy</h1>
 <p class="sub">Last updated {updated}</p>
 
-<p>Ferry has no user accounts. You are never asked to sign in, and we hold no name,
-email address or password for you.</p>
+<p>Ferry has no user accounts. There is no sign-in, and we hold no name, email
+address or password.</p>
 
 <h2>What leaves your device</h2>
 <p>When you ask a question, the text of that question and the earlier messages in

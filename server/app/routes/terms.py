@@ -83,21 +83,15 @@ _DONE = """<!doctype html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ferry — Purchase complete</title><style>{style}</style></head><body><main>
 
-<h1>That's paid for. Thank you.</h1>
-<p class="sub">One last step, and it takes a second.</p>
+<h1>Thank you.</h1>
+<p class="sub">Your receipt is on its way by email.</p>
 
 <div class="box">
-  <p><strong>Go back to Ferry and press "Restore purchases".</strong></p>
-  <p>It is on the opening screen, and in Settings under "Your plan". Ferry will
-  check with the payment provider and unlock Claude, GPT and Gemini Pro.</p>
+  <p><strong>Return to Ferry and press "Restore purchases"</strong> — on the opening
+  screen, or in Settings under "Your plan".</p>
 </div>
 
-<p>The step exists because the payment happened here, in your browser, rather than
-inside the app — so the app has to go and ask whether it went through. Pressing
-Restore is that question.</p>
-
-<p>If it says nothing was found, wait a few seconds and press it again: the payment
-provider tells Ferry about the purchase a moment after you finish paying.</p>
+<p>If nothing unlocks, give it a few seconds and press it again.</p>
 
 <p><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
 
