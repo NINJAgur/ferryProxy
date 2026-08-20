@@ -54,9 +54,9 @@ Done: `client/eas.json` points `preview` and `production` at
 
 `client/app.json` carries the identity that becomes permanent at first publish:
 
-- `ios.bundleIdentifier` and `android.package` are both `com.ninjagur.ferry`.
-  **Change these before the first build if you want a different id** — they cannot
-  be changed after a store release.
+- `android.package` is `com.ninjagur.ferry`, and is now fixed: a build carrying it
+  has been uploaded to Play, so it cannot change. (`ios.bundleIdentifier` is set to
+  match but unused — iOS is not being shipped.)
 
 Four build profiles, because where an app is distributed decides how it may take
 money. Play requires Play Billing for anything it distributes; an APK from

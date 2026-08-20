@@ -288,16 +288,16 @@ credentials: a store purchase unlocks models, and no key ever reaches a device.
 
 ### 4.1a Purchases
 
-- **One free app with one non-consumable IAP.** The product appears on the store listing
-  under "In-App Purchases", and the App Store allows promoting it so a purchase can be
-  started from the page.
-- **The store owns the purchase record**, tied to the buyer's Apple ID / Google account.
+- **One free app with one non-consumable IAP.** The product appears on the Play
+  listing under "In-App Purchases".
+- **The store owns the purchase record**, tied to the buyer's Google account.
   *Restore Purchases* replays it onto a new device — this is what removes the need for
   accounts.
 - **The relay verifies.** The device sends its store receipt / RevenueCat token; the relay
   validates it server-side. A missing or invalid receipt means free tier, not an error.
-- **Commission**: 30% standard; 15% under Apple's Small Business Program (<$1M/yr) and on
-  Google Play's first $1M/yr. Price is set from per-answer cost *after* commission.
+- **Commission**: 15% on Google Play's first $1M/yr, 30% above it. The web checkout
+  costs roughly 5% instead, which is the whole reason both routes exist. Price is set
+  from per-answer cost *after* commission.
 - **Store obligations that are real work**: a Restore Purchases button, and product
   disclosure in-app and on the listing.
 
@@ -444,59 +444,48 @@ replies rather than quoting a number from a single sample.
 - [x] **10.3** "Unlock all models" button + "Restore purchases" alongside it
 - [x] **10.4** After purchase, show which models are now available and continue to chat
 
-### Phase 11 — Purchase and entitlement 💳
-- [x] **11.2** `react-native-purchases` wired in `purchases.ts`, with a dev-endpoint
-      fallback on web and in Expo Go where the native module does not exist
-- [x] **11.3** Client sends the RevenueCat app user id as the receipt on every request
-- [x] **11.4** Relay validates that receipt server-side before serving a paid model
-- [x] **11.5** `ALLOW_DEV_SUBSCRIPTION` defaults to false; the deployed relay returns
-      403 on `/v1/dev/entitlement`, verified against production
-- [ ] **11.1** RevenueCat account, entitlement named exactly `pro`, and one
-      non-consumable product in App Store Connect — **needs your accounts**
-- [ ] **11.6** `EXPO_PUBLIC_REVENUECAT_IOS_KEY` in the build, `REVENUECAT_API_KEY` on
-      the relay
-- [ ] **11.7** Apple **Paid Applications Agreement**, banking and tax forms. Apple
-      blocks every purchase until accepted, and this is the slowest step
-- [ ] **11.8** Test a sandbox purchase and a restore on a real device. Until then the
-      purchase code is written but unproven — it has never run against a store
+### Phase 11 — Purchase and entitlement 💳 — superseded
+Written for an App Store release that is no longer happening. What survived is in
+Phase 15; what it got wrong is worth keeping:
+
+- The receipt is not an account. The store owns the purchase record, the device
+  carries an opaque id, and the relay verifies it — which is what removed sign-in
+  from the app entirely.
+- The purchase was "wired but unproven" for weeks. It is now proven, and the two
+  things that were wrong were both silent: a `dev:` prefix the verifier required,
+  and a customer id RevenueCat wants as a path segment rather than a query
+  parameter. Neither errored; both simply read as "not purchased".
 
 ### Phase 12 — Paying for the free tier 📊
 - [x] **12.1** Usage counter keyed by receipt/purchase id
 - [x] **12.3** Over the cap → paid models fall back to free Gemini until reset
 - [x] **12.4** Show remaining allowance in Settings
 - [x] **12.6** Free answers metered per device via `X-Device-Id`, falling back to the
-      caller's address so the meter cannot be skipped by omitting the header.
-      `FREE_ANSWER_ALLOWANCE`, 100 a month
-- [x] **12.7** Billing enabled on **ferry-free**; verified 6/6 answers past the old
-      20/day ceiling. Only `gemini_free_model` can reach that key
-- [x] **12.8** Spending cap set in Google Cloud. Confirm it is a **quota cap** under
-      APIs & Services → Quotas, not just a budget alert, which only sends email
-- [ ] **12.2** Record token cost per answer, so the allowance comes from data
-- [ ] **12.5** Set the limit and the add-on price once that cost is known
+      caller's address so the meter cannot be skipped by omitting the header
+- [x] **12.7** Billing enabled on **ferry-free**; the free tier's 20/day ceiling was
+      the whole app's daily budget, shared by every user
+- [x] **12.8** Spending cap set in Google Cloud
+- [ ] **12.2** Record token cost per answer — the data that settles 17.4
 
 ### Phase 13 — Deployment 🗄️
-- [x] **13.1** Entitlements kept in a file, not a database
-- [x] **13.2** `ENTITLEMENT_STORE_PATH` so the store can live on a mounted volume
+- [x] **13.1** Entitlements in a file, not a database
+- [x] **13.2** `ENTITLEMENT_STORE_PATH`, for a mounted volume
 - [x] **13.3** `ALLOW_DEV_SUBSCRIPTION` defaults to false
 - [x] **13.4** Dockerfile (non-root, one worker) + `.dockerignore`
 - [x] **13.5** `CORS_ALLOW_ORIGINS` configurable
-- [x] **13.6** `client/app.json`: bundle identifier, package, version code
+- [x] **13.6** `client/app.json`: package, version code, icons
 - [x] **13.7** `client/eas.json` build profiles
-- [x] **13.8** `DEPLOY.md` — relay first, then the app that points at it
-- [x] **13.9** **Relay is live** at `https://ferryproxy.onrender.com`, verified end to
-      end: health, free answer, paid model refused, dev endpoint 403
-- [ ] **13.11** Render's free instance sleeps (~40s cold start) and has **no disk**, so
-      purchases and usage are lost on every deploy. A paid tier or another host is
-      required before real purchases exist
-- [ ] **13.12** A custom domain. uBlock Origin blocks `*.onrender.com` outright, and
-      DNS filters and corporate networks will too — the users Ferry targets
-- [ ] **13.10** Replace the in-memory chunk cache, or keep the relay pinned to one instance
+- [x] **13.8** `DEPLOY.md`
+- [x] **13.9** **Relay live** at `ferryproxy.onrender.com`, verified end to end
+- [x] **13.13** Public pages the stores require: `/privacy`, `/delete-data`,
+      `/terms`, `/purchase-complete`, each also a static copy in `docs/`
+- [ ] **13.10** Replace the in-memory chunk cache, or keep the relay on one instance
+
+Hosting problems moved to **Phase 17**, where they belong: they are launch
+blockers, not deployment tasks.
 
 ### Phase 14 — Outstanding engineering 🔧
-- [x] **14.1** The 90% packet-loss proof exists and runs. **Ferry fails it**: 0/10
-      answers reassembled at 90% loss, 10/10 with no loss. 20 attempts/2s cap gives
-      4/5; 40 attempts/1s cap gives 5/5. Constants deliberately left unchanged
-- [ ] **14.2** Test on a physical phone
+- [x] **14.1** The 90% packet-loss proof exists and runs — see 17.5 for the result
 - [ ] **14.3** Shared-dictionary compression to beat the ~700 B crossover
 - [ ] **14.4** Delete orphans: `TunnelButton.tsx`, `ProviderSelector.tsx`, and
       `server/app/db.py` + `models.py` from the abandoned database approach
@@ -527,6 +516,9 @@ customer id, so `receipts.py` never learns which was used.
       purchase. Needs the checkout email or a redemption code
 
 ### Phase 16 — Google Play 🤖
+iOS is dropped, not postponed: $99/yr and no iPhone to test on. `playBilling.ts`
+still reads an iOS key, so nothing needs undoing if that ever changes.
+
 Account approved, AAB uploaded to internal testing. **The 12-tester rule applies**
 — confirmed in the console. Production is ~3 weeks out; internal testing works now.
 
@@ -563,10 +555,6 @@ decides whether the release survives contact with real users.
       gives 5/5; the constants are deliberately unchanged
 - [ ] **17.6** **Never run on a phone.** Every test so far has been a desktop
       browser. 14.2 remains open
-
-### Phase 18 — iOS, postponed 🍎
-$99/yr, and no iPhone to test on. The code already reads an iOS RevenueCat key,
-so this is account setup rather than development.
 
 ---
 
