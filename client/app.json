@@ -32,6 +32,12 @@
     "plugins": [
       "expo-font",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cc71aa69-f18c-46f3-8614-94ffc0d3c3e7"
+      }
+    },
+    "owner": "ninjagur-dev"
   }
 }
