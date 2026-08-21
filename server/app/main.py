@@ -9,6 +9,7 @@ from app.routes.chunks import router as chunks_router
 from app.routes.deletion import router as deletion_router
 from app.routes.entitlement import router as entitlement_router
 from app.routes.privacy import router as privacy_router
+from app.routes.site import router as site_router
 from app.routes.terms import router as terms_router
 
 configure_logging()
@@ -31,6 +32,7 @@ app.include_router(entitlement_router)
 app.include_router(privacy_router)
 app.include_router(deletion_router)
 app.include_router(terms_router)
+app.include_router(site_router)
 
 
 @app.get("/health")

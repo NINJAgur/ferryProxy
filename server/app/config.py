@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # native app sends no Origin at all, so this only constrains web.
     cors_allow_origins: str = "*"
 
+    # Shown on the public pricing page. A payment provider verifying a seller
+    # expects the advertised price to match what the checkout charges.
+    unlock_price_display: str = "$10"
+
     # Shown on the public privacy policy the stores require. A public issue
     # tracker rather than a personal address, so the contact is not someone's inbox.
     privacy_contact: str = "https://github.com/NINJAgur/ferryProxy/issues"
