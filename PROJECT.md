@@ -465,7 +465,9 @@ Phase 15; what it got wrong is worth keeping:
 - [x] **12.7** Billing enabled on **ferry-free**; the free tier's 20/day ceiling was
       the whole app's daily budget, shared by every user
 - [x] **12.8** Spending cap set in Google Cloud
-- [ ] **12.2** Record token cost per answer — the data that settles 17.4
+- [x] **12.2** Token counts and cost recorded per answer to `.usage.jsonl`;
+      `scripts/usage_report.py` turns them into cost per answer, cost of a full
+      monthly allowance, and what a buyer costs per year — the numbers 17.4 needs
 
 ### Phase 13 — Deployment 🗄️
 - [x] **13.1** Entitlements in a file, not a database

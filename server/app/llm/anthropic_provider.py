@@ -65,4 +65,11 @@ class AnthropicProvider:
             raise LLMProviderError(f"Anthropic request failed: {exc}") from exc
 
         content = "".join(block.text for block in response.content if block.type == "text")
-        return LLMResult(content=content, model=response.model, stop_reason=response.stop_reason or "")
+        usage = getattr(response, "usage", None)
+        return LLMResult(
+            content=content,
+            model=response.model,
+            stop_reason=response.stop_reason or "",
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+        )

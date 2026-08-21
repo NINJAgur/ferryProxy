@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     privacy_contact: str = "https://github.com/NINJAgur/ferryProxy/issues"
     privacy_updated: str = "20 August 2026"
 
+    # One line per answer, with its token counts and cost. The data behind the
+    # add-on's price: what an answer costs cannot be guessed from its length,
+    # because history is re-sent every message and thinking is billed unseen.
+    usage_log_path: str = ".usage.jsonl"
+
     # Where purchases and this month's usage are kept. Hosts give a container an
     # ephemeral filesystem, so in production this must point inside a mounted
     # volume or every deploy silently resets everyone's allowance.

@@ -20,6 +20,7 @@ from app.llm.registry import get_provider
 from app.protocol.checksum import sha256_hex
 from app.protocol.chunker import split_into_chunks
 from app.protocol.compression import decode_payload, encode_payload
+from app.usage import record as record_usage
 from app.protocol.schemas import (
     ChatRequestEnvelope,
     ChatRequestPlaintext,
@@ -121,6 +122,15 @@ async def chat(
     except LLMProviderError as exc:
         logger.exception("provider call failed")
         return _error(502, "provider_error", str(exc))
+
+    record_usage(
+        model=model_entry.model_id,
+        tier=model_entry.tier,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        brief=bool(plaintext.brief),
+        paid=model_entry.tier == "paid",
+    )
 
     # Counted only after an answer exists: a failed call should not spend the
     # allowance the caller paid for.

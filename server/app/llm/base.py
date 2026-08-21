@@ -9,6 +9,11 @@ class LLMResult:
     content: str
     model: str
     stop_reason: str
+    # What the answer cost, in tokens. None where a provider did not say — the
+    # cost of an answer cannot be inferred from its length, because every message
+    # re-sends the conversation so far and providers bill input and output apart.
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
 
 
 class LLMConfigError(Exception):

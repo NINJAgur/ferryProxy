@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import httpx
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
@@ -55,11 +56,20 @@ class GeminiProvider:
             )
         except genai_errors.APIError as exc:
             raise LLMProviderError(f"Gemini request failed: {exc}") from exc
+        except (httpx.HTTPError, OSError) as exc:
+            # DNS or connection failures are not APIError, so without this they
+            # escape as a 500 traceback rather than a readable 502.
+            raise LLMProviderError(f"could not reach Gemini: {exc}") from exc
 
         candidate = response.candidates[0]
         finish_reason = candidate.finish_reason
+        usage = getattr(response, "usage_metadata", None)
         return LLMResult(
             content=response.text or "",
             model=model or settings.gemini_model,
             stop_reason=str(finish_reason) if finish_reason else "",
+            input_tokens=getattr(usage, "prompt_token_count", None),
+            # Thinking models bill hidden reasoning here too, which is exactly the
+            # cost that a short answer hides.
+            output_tokens=getattr(usage, "candidates_token_count", None),
         )

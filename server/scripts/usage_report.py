@@ -1,0 +1,95 @@
+"""What answers cost, from the relay's own traffic.
+
+    python scripts/usage_report.py
+
+Answers the question the add-on's price depends on: if someone uses their whole
+monthly allowance, what does that cost? Guessing it is unreliable — every message
+re-sends the conversation so far, and models that think before answering bill
+that reasoning as output without showing it.
+"""
+import json
+import statistics
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app.config import settings  # noqa: E402
+from app.pricing import rate_for  # noqa: E402
+
+
+def load(path: Path) -> list:
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+    return rows
+
+
+def main() -> None:
+    path = Path(settings.usage_log_path)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parent.parent / path
+
+    rows = load(path)
+    if not rows:
+        print(f"No answers recorded yet ({path}).")
+        print("Ask Ferry a few questions, then run this again.")
+        raise SystemExit(0)
+
+    by_model = defaultdict(list)
+    for r in rows:
+        by_model[r["model"]].append(r)
+
+    print(f"{len(rows)} answers recorded\n")
+    print(f"  {'model':28} {'n':>4} {'in':>8} {'out':>8} {'$/answer':>10} {'$/300':>9}")
+    print(f"  {'-' * 28} {'-' * 4} {'-' * 8} {'-' * 8} {'-' * 10} {'-' * 9}")
+
+    unpriced = []
+    for model, entries in sorted(by_model.items(), key=lambda kv: -len(kv[1])):
+        ins = [e["input_tokens"] for e in entries if e["input_tokens"] is not None]
+        outs = [e["output_tokens"] for e in entries if e["output_tokens"] is not None]
+        costs = [e["cost_usd"] for e in entries if e["cost_usd"] is not None]
+        if rate_for(model) is None:
+            unpriced.append(model)
+        avg_in = f"{statistics.mean(ins):,.0f}" if ins else "—"
+        avg_out = f"{statistics.mean(outs):,.0f}" if outs else "—"
+        per = statistics.mean(costs) if costs else None
+        print(
+            f"  {model:28} {len(entries):>4} {avg_in:>8} {avg_out:>8}"
+            f" {('$%.5f' % per) if per else '—':>10} {('$%.2f' % (per * 300)) if per else '—':>9}"
+        )
+
+    paid = [e["cost_usd"] for e in rows if e.get("paid") and e["cost_usd"] is not None]
+    if paid:
+        per = statistics.mean(paid)
+        print(f"\nPaid answers: {len(paid)}, averaging ${per:.5f} each.")
+        print(f"  A full monthly allowance of {settings.monthly_answer_allowance} costs "
+              f"${per * settings.monthly_answer_allowance:.2f}.")
+        print(f"  Worst single answer seen: ${max(paid):.5f}.")
+        # The whole point: a one-time price against a recurring cost.
+        print(f"\n  At that rate a buyer who uses the allowance every month costs "
+              f"${per * settings.monthly_answer_allowance * 12:.2f} a year.")
+
+    brief = [e["output_tokens"] for e in rows if e.get("brief") and e["output_tokens"]]
+    full = [e["output_tokens"] for e in rows if not e.get("brief") and e["output_tokens"]]
+    if brief and full:
+        saved = 1 - statistics.mean(brief) / statistics.mean(full)
+        print(f"\nAsking for less: short answers average {statistics.mean(brief):,.0f} output "
+              f"tokens against {statistics.mean(full):,.0f} — {saved:.0%} smaller.")
+
+    if unpriced:
+        print("\nNo rate configured, so these are excluded from every cost above:")
+        for m in unpriced:
+            print(f"  {m}")
+        print("Add them to server/model_prices.json as {\"model\": {\"input\": 0.0, \"output\": 0.0}}")
+
+
+if __name__ == "__main__":
+    main()

@@ -55,8 +55,11 @@ class OpenAIProvider:
             raise LLMProviderError(f"OpenAI request failed: {exc}") from exc
 
         choice = response.choices[0]
+        usage = getattr(response, "usage", None)
         return LLMResult(
             content=choice.message.content or "",
             model=response.model,
             stop_reason=choice.finish_reason or "",
+            input_tokens=getattr(usage, "prompt_tokens", None),
+            output_tokens=getattr(usage, "completion_tokens", None),
         )

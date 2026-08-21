@@ -24,3 +24,6 @@ client/npm-debug.*
 # OS
 .DS_Store
 Thumbs.db
+
+# Usage log — measured cost per answer, not for the repo
+server/.usage.jsonl
