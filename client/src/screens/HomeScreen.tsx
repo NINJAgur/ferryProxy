@@ -30,6 +30,7 @@ import { useThreadStore } from "../state/threadStore";
 import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore";
 import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
+import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
@@ -55,6 +56,7 @@ const launch = {
 export function HomeScreen() {
   const sessionId = useRef(generateId()).current;
   const inputRef = useRef<TextInput>(null);
+  const wide = useWide();
   const notifyRef = useRef(false);
 
   const [draft, setDraft] = useState("");
@@ -289,7 +291,7 @@ export function HomeScreen() {
 
   if (!setupDone) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.handshakeContent}>
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.handshakeContent, wide && styles.fill]}>
         <HandshakePanel
           network={network}
           relay={relay}
@@ -320,16 +322,17 @@ export function HomeScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={12}
     >
-      <View style={[styles.header, offlineMode && styles.headerOffline]}>
+      <View style={[styles.header, wide && styles.headerWide, offlineMode && styles.headerOffline]}>
+        <View style={wide ? styles.column : undefined}>
         {offlineMode ? (
           <>
             <View style={styles.statusRow}>
               <View style={[styles.dot, { backgroundColor: colors.neutral600 }]} />
-              <Text style={styles.statusText}>
+              <Text style={[styles.statusText, wide && styles.statusTextWide]}>
                 {online ? "The line keeps dropping" : "No connection right now"}
               </Text>
             </View>
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, wide && styles.headerTitleWide]}>
               {queued.length === 0
                 ? "Nothing waiting"
                 : `${countWord(queued.length)} question${queued.length === 1 ? "" : "s"} waiting`}
@@ -337,16 +340,17 @@ export function HomeScreen() {
           </>
         ) : (
           <>
-            <Text style={styles.headerTitle}>Ferry</Text>
+            <Text style={[styles.headerTitle, wide && styles.headerTitleWide]}>Ferry</Text>
             <View style={styles.statusRow}>
               <View style={[styles.dot, { backgroundColor: colors.accent }]} />
-              <Text style={styles.statusText}>Slow but steady</Text>
+              <Text style={[styles.statusText, wide && styles.statusTextWide]}>Slow but steady</Text>
             </View>
           </>
         )}
+        </View>
       </View>
 
-      <View style={styles.modelRow}>
+      <View style={[styles.modelRow, wide && styles.column]}>
         <ModelPicker
           value={modelId}
           onChange={chooseModel}
@@ -355,7 +359,7 @@ export function HomeScreen() {
         />
       </View>
 
-      <ScrollView style={styles.thread} contentContainerStyle={styles.threadContent}>
+      <ScrollView style={styles.thread} contentContainerStyle={[styles.threadContent, wide && styles.column]}>
         <QueuedList messages={queued} />
         {/* Queued messages are listed in QueuedList; don't repeat them as bubbles. */}
         {messages
@@ -385,10 +389,11 @@ export function HomeScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.composer}>
+      <View style={styles.composerBar}>
+      <View style={[styles.composer, wide && styles.column]}>
         <TextInput
           ref={inputRef}
-          style={styles.input}
+          style={[styles.input, wide && styles.inputWide]}
           placeholder={offlineMode ? "Write the next one" : "Ask something"}
           placeholderTextColor={colors.text40}
           value={draft}
@@ -402,12 +407,14 @@ export function HomeScreen() {
           disabled={busy || !draft.trim()}
           style={({ hovered }: PressState) => [
             offlineMode ? styles.queueBtn : styles.sendBtn,
+            wide && styles.sendBtnWide,
             hovered && draft.trim() && !busy && { backgroundColor: colors.accent900 },
             (!draft.trim() || busy) && styles.btnDim,
           ]}
         >
-          <Text style={styles.sendLabel}>{offlineMode ? "Queue" : "Send"}</Text>
+          <Text style={[styles.sendLabel, wide && styles.sendLabelWide]}>{offlineMode ? "Queue" : "Send"}</Text>
         </Pressable>
+      </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -435,6 +442,18 @@ const styles = StyleSheet.create({
   thread: { flex: 1 },
   threadContent: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 8 },
   handshakeContent: { paddingBottom: 32 },
+  headerWide: { paddingTop: 26, paddingBottom: 20 },
+  headerTitleWide: { fontSize: 24, lineHeight: 29 },
+  statusTextWide: { fontSize: 14 },
+  inputWide: { height: 54, borderRadius: 27, fontSize: 16, paddingHorizontal: 20 },
+  sendBtnWide: { height: 54, borderRadius: 27, paddingHorizontal: 28 },
+  sendLabelWide: { fontSize: 16 },
+  // Bars and dividers stay full width; what you read sits in a column.
+  // The same frame screen A uses: full-window bars, content at a readable
+  // width, sized for the window rather than for a phone held at arm's length.
+  column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
+  fill: { flexGrow: 1, justifyContent: "center" },
+  composerBar: { borderTopWidth: 1, borderTopColor: colors.divider09 },
   composer: {
     flexDirection: "row",
     gap: 10,
@@ -442,8 +461,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider09,
   },
   input: {
     flex: 1,

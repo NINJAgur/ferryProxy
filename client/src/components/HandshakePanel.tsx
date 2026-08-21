@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { groupByProvider, groupUnlocked, PROVIDER_NAME, providerStatus } from "../modelGroups";
 import { EntitlementPhase } from "../state/entitlementStore";
+import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 import { ModelInfo } from "../transport/types";
 import { Button } from "./Button";
@@ -45,6 +46,7 @@ export function HandshakePanel({
   onRetry,
   onContinue,
 }: HandshakePanelProps) {
+  const wide = useWide();
   const working = busy || phase === "loading";
   // One row per provider, never one per version. This screen answers "what can I
   // reach"; the version is chosen in the chat, next to what it affects.
@@ -52,28 +54,37 @@ export function HandshakePanel({
   const unlocked = groups.filter(groupUnlocked);
   const locked = groups.filter((g) => !groupUnlocked(g));
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.brand}>FERRY</Text>
-      <Text style={styles.headline}>{headline(phase)}</Text>
-      <Text style={styles.subtitle}>{subtitle(phase, purchased)}</Text>
+  // Three blocks, so a wide window can put the pitch beside the status instead
+  // of stacking a phone layout down the middle of a monitor.
+  const intro = (
+    <View>
+      <Text style={[styles.brand, wide && styles.brandWide]}>FERRY</Text>
+      <Text style={[styles.headline, wide && styles.headlineWide]}>{headline(phase)}</Text>
+      <Text style={[styles.subtitle, wide && styles.subtitleWide]}>{subtitle(phase, purchased)}</Text>
+    </View>
+  );
 
+  const status = (
+    <View>
       {/* Every row is a real check with a real failure state — an unfinished
           check and a failed one must not look the same. */}
-      <View style={styles.checklist}>
+      <View style={[styles.checklist, wide && styles.checklistWide]}>
         <CheckRow
+          wide={wide}
           state={network}
           label="This device has a network"
           failed="No network — Ferry can't reach anything"
         />
         <FadingRule inset={24} />
         <CheckRow
+          wide={wide}
           state={relay}
           label="The Ferry server answered"
           failed="Ferry's server isn't reachable — it runs separately, not on this device"
         />
         <FadingRule inset={24} />
         <CheckRow
+          wide={wide}
           state={phase === "ready" ? "ok" : phase === "failed" ? "failed" : "pending"}
           label="Found the models you can use"
           failed="Couldn't work out which models are available"
@@ -89,82 +100,108 @@ export function HandshakePanel({
 
       {phase === "ready" ? (
         <>
-          <Text style={styles.sectionTitle}>Your models</Text>
+          <Text style={[styles.sectionTitle, wide && styles.sectionTitleWide]}>Your models</Text>
           {unlocked.map((g) => (
-            <View key={g.provider} style={styles.modelRow}>
-              <View style={styles.tick}>
+            <View key={g.provider} style={[styles.modelRow, wide && styles.modelRowWide]}>
+              <View style={[styles.tick, wide && styles.markWide]}>
                 <Text style={styles.tickMark}>✓</Text>
               </View>
-              <Text style={styles.modelName}>{PROVIDER_NAME[g.provider]}</Text>
-              <Text style={styles.modelNote}>{providerStatus(g)}</Text>
+              <Text style={[styles.modelName, wide && styles.modelNameWide]}>{PROVIDER_NAME[g.provider]}</Text>
+              <Text style={[styles.modelNote, wide && styles.modelNoteWide]}>{providerStatus(g)}</Text>
             </View>
           ))}
           {locked.map((g) => (
-            <View key={g.provider} style={styles.modelRow}>
-              <View style={styles.lockCircle} />
-              <Text style={[styles.modelName, styles.modelNameLocked]}>
+            <View key={g.provider} style={[styles.modelRow, wide && styles.modelRowWide]}>
+              <View style={[styles.lockCircle, wide && styles.markWide]} />
+              <Text style={[styles.modelName, wide && styles.modelNameWide, styles.modelNameLocked]}>
                 {PROVIDER_NAME[g.provider]}
               </Text>
-              <Text style={styles.modelNote}>{providerStatus(g)}</Text>
+              <Text style={[styles.modelNote, wide && styles.modelNoteWide]}>{providerStatus(g)}</Text>
             </View>
           ))}
+        </>
+      ) : null}
+    </View>
+  );
 
-          {/* Restore is always reachable, even once unlocked: both stores require
-              it, and someone whose entitlement did not come back needs a way to
-              ask for it. Only the offer to buy disappears after buying. */}
-          <View style={styles.upsell}>
-            {!purchased && locked.length > 0 ? (
-              <>
-                <Text style={styles.upsellText}>
-                  The stronger models are billed per answer, so one payment buys
-                  {answersAllowed ? ` ${answersAllowed} answers` : " a set number of answers"} on
-                  them. Gemini Flash stays free either way.
-                </Text>
+  const offer = (
+    <View>
+      {phase === "ready" ? (
+        // Restore is always reachable, even once unlocked: both stores require
+        // it, and someone whose entitlement did not come back needs a way to
+        // ask for it. Only the offer to buy disappears after buying.
+        <View style={[styles.upsell, wide && styles.upsellWide]}>
+          {!purchased && locked.length > 0 ? (
+            <>
+              <Text style={[styles.upsellText, wide && styles.upsellTextWide]}>
+                Pro opens Claude, GPT and Gemini Pro, and lets you pick which version
+                answers. One payment, no subscription — it buys
+                {answersAllowed ? ` ${answersAllowed} answers` : " a set number of answers"} to
+                spend across all of them, in your own time. Gemini Flash stays free either way.
+              </Text>
+              <View style={wide ? styles.control : undefined}>
                 <Button
-                  label={answersAllowed ? `Unlock — ${answersAllowed} answers` : "Unlock all models"}
+                  // Matches the words on the locked rows beside it. A button that
+                  // says something else reads as a different offer.
+                  label="Upgrade to Pro"
                   onPress={onUnlock}
                   disabled={working}
-                  height={48}
-                  fontSize={15}
+                  height={wide ? 50 : 48}
+                  fontSize={wide ? 15.5 : 15}
                 />
-              </>
-            ) : null}
+              </View>
+            </>
+          ) : null}
+          <View style={wide ? styles.control : undefined}>
             <Button
               label="Restore purchases"
               onPress={onRestore}
               disabled={working}
               variant="ghost"
-              height={44}
-              fontSize={14}
+              height={wide ? 46 : 44}
+              fontSize={wide ? 14.5 : 14}
             />
-            {note ? <Text style={styles.note}>{note}</Text> : null}
-            {!purchased ? (
-              <Text style={styles.configNote}>
-                Bought it already, or on a new phone? Restore brings it back — the store keeps the
-                record, so there is no account to sign into.
-              </Text>
-            ) : null}
           </View>
-        </>
+          {note ? <Text style={[styles.note, wide && styles.noteWide]}>{note}</Text> : null}
+          {!purchased ? (
+            <Text style={[styles.configNote, wide && styles.configNoteWide]}>
+              Bought it already, or on a new phone? Restore brings it back — the store keeps the
+              record, so there is no account to sign into.
+            </Text>
+          ) : null}
+        </View>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.spacer} />
+      <View style={[styles.spacer, wide && styles.spacerWide]} />
 
-      <View style={styles.actions}>
+      <View style={[styles.actions, wide && styles.control]}>
         {phase === "ready" ? (
-          <Button label="Continue to chat" onPress={onContinue} height={48} fontSize={15} />
+          <Button
+            label="Continue to chat"
+            onPress={onContinue}
+            height={wide ? 50 : 48}
+            fontSize={wide ? 15.5 : 15}
+          />
         ) : (
           <Button
             label="Try again"
             onPress={onRetry}
             disabled={working}
-            height={48}
-            fontSize={15}
+            height={wide ? 50 : 48}
+            fontSize={wide ? 15.5 : 15}
           />
         )}
       </View>
+    </View>
+  );
+
+  return (
+    <View style={[styles.container, wide && styles.containerWide]}>
+      {intro}
+      {status}
+      {offer}
     </View>
   );
 }
@@ -190,23 +227,27 @@ function subtitle(phase: EntitlementPhase, purchased: boolean): string {
   }
 }
 
-function CheckRow({ state, label, failed }: { state: CheckState; label: string; failed: string }) {
+function CheckRow(
+  { state, label, failed, wide }:
+  { state: CheckState; label: string; failed: string; wide: boolean },
+) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, wide && styles.rowWide]}>
       {state === "ok" ? (
-        <View style={styles.tick}>
+        <View style={[styles.tick, wide && styles.markWide]}>
           <Text style={styles.tickMark}>✓</Text>
         </View>
       ) : state === "failed" ? (
-        <View style={styles.cross}>
+        <View style={[styles.cross, wide && styles.markWide]}>
           <Text style={styles.crossMark}>!</Text>
         </View>
       ) : (
-        <View style={styles.circlePending} />
+        <View style={[styles.circlePending, wide && styles.markWide]} />
       )}
       <Text
         style={[
           styles.rowLabel,
+          wide && styles.rowLabelWide,
           state !== "ok" && styles.rowLabelMuted,
           state === "failed" && styles.rowLabelFailed,
         ]}
@@ -219,6 +260,34 @@ function CheckRow({ state, label, failed }: { state: CheckState; label: string; 
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 26, paddingTop: 24, paddingBottom: 24 },
+
+  // A browser window is not a big phone. Everything grows with it — type,
+  // targets and the space between them — instead of staying phone-sized in the
+  // middle of a monitor.
+  containerWide: {
+    width: "100%",
+    maxWidth: WIDE_COLUMN,
+    alignSelf: "center",
+    paddingHorizontal: 40,
+    paddingTop: 44,
+    paddingBottom: 44,
+  },
+  brandWide: { fontSize: 13, letterSpacing: 2 },
+  headlineWide: { fontSize: 46, lineHeight: 54, marginTop: 20, marginBottom: 16 },
+  subtitleWide: { maxWidth: 620, fontSize: 18, lineHeight: 29 },
+  checklistWide: { marginTop: 40, gap: 4 },
+  rowWide: { paddingVertical: 20, gap: 16 },
+  rowLabelWide: { fontSize: 17 },
+  markWide: { width: 24, height: 24, borderRadius: 12 },
+  sectionTitleWide: { fontSize: 24, marginTop: 40, marginBottom: 8 },
+  modelRowWide: { paddingVertical: 16, gap: 16 },
+  modelNameWide: { fontSize: 17 },
+  modelNoteWide: { fontSize: 14 },
+  upsellWide: { marginTop: 28, gap: 10 },
+  upsellTextWide: { fontSize: 15, lineHeight: 24, maxWidth: 580, alignSelf: "center", textAlign: "center" },
+  configNoteWide: { fontSize: 13.5, lineHeight: 21, maxWidth: 580, alignSelf: "center", textAlign: "center" },
+  noteWide: { fontSize: 14.5, lineHeight: 22, textAlign: "center" },
+  spacerWide: { height: 10 },
   brand: { fontFamily: fonts.headingSemi, fontSize: 10, letterSpacing: 1.6, color: colors.accent },
   headline: {
     fontFamily: fonts.heading,
@@ -266,6 +335,8 @@ const styles = StyleSheet.create({
   error: { fontFamily: fonts.body, fontSize: 12.5, color: colors.danger, marginTop: 18, lineHeight: 18 },
   note: { fontFamily: fonts.body, fontSize: 12.5, color: colors.accent400, lineHeight: 18 },
   configNote: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text45, lineHeight: 17, marginTop: 4 },
+  // Centred and a real width: a button spanning a monitor is not a button.
+  control: { width: "100%", maxWidth: 580, alignSelf: "center" },
   spacer: { height: 24 },
   actions: { gap: 10 },
 });

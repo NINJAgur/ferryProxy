@@ -3,6 +3,7 @@ import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-nat
 
 import { PressState } from "../components/pressState";
 import { Conversation, useThreadStore } from "../state/threadStore";
+import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 
 interface ChatsScreenProps {
@@ -11,15 +12,16 @@ interface ChatsScreenProps {
 }
 
 export function ChatsScreen({ onOpen, onNew }: ChatsScreenProps) {
+  const wide = useWide();
   const conversations = useThreadStore((s) => s.conversations);
   const remove = useThreadStore((s) => s.remove);
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, wide && styles.column]}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Your chats</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, wide && styles.titleWide]}>Your chats</Text>
+          <Text style={[styles.subtitle, wide && styles.subtitleWide]}>
             Kept on this {Platform.OS === "web" ? "browser" : "phone"} only — never uploaded.
           </Text>
         </View>
@@ -27,15 +29,15 @@ export function ChatsScreen({ onOpen, onNew }: ChatsScreenProps) {
           onPress={onNew}
           style={({ hovered }: PressState) => [styles.newBtn, hovered && { backgroundColor: colors.accentHover }]}
         >
-          <Text style={styles.newLabel}>New</Text>
+          <Text style={[styles.newLabel, wide && styles.newLabelWide]}>New</Text>
         </Pressable>
       </View>
 
       <FlatList
         data={conversations}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => <Row conversation={item} onOpen={onOpen} onDelete={() => remove(item.id)} />}
+        contentContainerStyle={[styles.list, wide && styles.column]}
+        renderItem={({ item }) => <Row conversation={item} onOpen={onOpen} onDelete={() => remove(item.id)} wide={wide} />}
         ListEmptyComponent={<Text style={styles.empty}>No chats yet.</Text>}
       />
     </View>
@@ -46,22 +48,28 @@ function Row({
   conversation,
   onOpen,
   onDelete,
+  wide,
 }: {
   conversation: Conversation;
   onOpen: (id: string) => void;
   onDelete: () => void;
+  wide: boolean;
 }) {
   const last = conversation.messages[conversation.messages.length - 1];
   return (
     <Pressable
       onPress={() => onOpen(conversation.id)}
-      style={({ hovered }: PressState) => [styles.row, hovered && { backgroundColor: colors.textHover }]}
+      style={({ hovered }: PressState) => [
+        styles.row,
+        wide && styles.rowWide,
+        hovered && { backgroundColor: colors.textHover },
+      ]}
     >
       <View style={styles.rowText}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
+        <Text style={[styles.rowTitle, wide && styles.rowTitleWide]} numberOfLines={1}>
           {conversation.title}
         </Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>
+        <Text style={[styles.rowMeta, wide && styles.rowMetaWide]} numberOfLines={1}>
           {conversation.messages.length} message{conversation.messages.length === 1 ? "" : "s"} ·{" "}
           {formatWhen(conversation.updatedAt)}
           {last ? ` · ${last.content.replace(/\s+/g, " ").slice(0, 40)}` : ""}
@@ -72,7 +80,7 @@ function Row({
         hitSlop={8}
         style={({ hovered }: PressState) => [styles.delete, hovered && { backgroundColor: colors.textHover }]}
       >
-        <Text style={styles.deleteLabel}>Delete</Text>
+        <Text style={[styles.deleteLabel, wide && styles.deleteLabelWide]}>Delete</Text>
       </Pressable>
     </Pressable>
   );
@@ -87,7 +95,12 @@ function formatWhen(ts: number): string {
 }
 
 const styles = StyleSheet.create({
+  // The same frame screen A uses: full-window bars, content at a readable
+  // width, sized for the window rather than for a phone held at arm's length.
+  column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
   screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 22, paddingTop: 24 },
+  titleWide: { fontSize: 34 },
+  subtitleWide: { fontSize: 15.5, lineHeight: 25, marginTop: 10 },
   header: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 16 },
   headerText: { flex: 1 },
   title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, letterSpacing: -0.36 },
@@ -101,6 +114,11 @@ const styles = StyleSheet.create({
   },
   newLabel: { fontFamily: fonts.heading, fontSize: 14, color: colors.accent },
   list: { paddingBottom: 24 },
+  rowWide: { paddingVertical: 20 },
+  rowTitleWide: { fontSize: 17.5 },
+  rowMetaWide: { fontSize: 13, marginTop: 5 },
+  deleteLabelWide: { fontSize: 14 },
+  newLabelWide: { fontSize: 16 },
   row: {
     flexDirection: "row",
     alignItems: "center",

@@ -12,6 +12,7 @@ import { buyAddOn, restorePurchases } from "../billing";
 import { CHAT_FILE, useThreadStore } from "../state/threadStore";
 import { useMetricsStore } from "../state/metricsStore";
 import { SettingsValues, useSettingsStore } from "../state/settingsStore";
+import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 
 const SETTINGS: { key: keyof SettingsValues; label: string; note: string }[] = [
@@ -53,6 +54,7 @@ async function purchase(step: () => Promise<{ receipt: string | null }>): Promis
 }
 
 export function SettingsScreen() {
+  const wide = useWide();
   const settings = useSettingsStore();
   const entitlement = useEntitlementStore();
   const clearChats = useThreadStore((t) => t.clearAll);
@@ -60,9 +62,9 @@ export function SettingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>How Ferry behaves</Text>
-        <Text style={styles.subtitle}>
+      <ScrollView contentContainerStyle={[styles.container, wide && styles.column]}>
+        <Text style={[styles.title, wide && styles.titleWide]}>How Ferry behaves</Text>
+        <Text style={[styles.subtitle, wide && styles.subtitleWide]}>
           On a weak line, being brief is the whole trick. These are the choices that matter.
         </Text>
 
@@ -82,11 +84,11 @@ export function SettingsScreen() {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Your plan</Text>
-        <Text style={styles.sectionNote}>
+        <Text style={[styles.sectionTitle, wide && styles.sectionTitleWide]}>Your plan</Text>
+        <Text style={[styles.sectionNote, wide && styles.sectionNoteWide]}>
           {entitlement.unlocked
             ? "Unlocked — every model is included."
-            : "Gemini Flash is free. Claude and GPT are billed per answer, so they come with a one-off purchase."}
+            : `Gemini Flash is free. Pro opens Claude, GPT and Gemini Pro for one payment — ${entitlement.answersAllowed} answers to spend across them, with nothing to cancel.`}
         </Text>
         {/* By provider, not by version: the version is chosen in the chat. */}
         {groupByProvider(entitlement.models).map((g) => (
@@ -100,7 +102,7 @@ export function SettingsScreen() {
           </View>
         ))}
         {entitlement.unlocked ? (
-          <Text style={styles.storageNote}>
+          <Text style={[styles.storageNote, wide && styles.storageNoteWide]}>
             {entitlement.capped
               ? `You've used all ${entitlement.answersAllowed} answers your purchase included. Gemini Flash carries on free.`
               : `${entitlement.answersAllowed - entitlement.answersUsed} of ${entitlement.answersAllowed} answers left.`}
@@ -108,36 +110,40 @@ export function SettingsScreen() {
         ) : null}
         <View style={styles.planAction}>
           {!entitlement.unlocked && entitlement.models.some((m) => !m.unlocked) ? (
-            <Button
-              label="Unlock all models"
-              onPress={() => void purchase(buyAddOn)}
-              height={44}
-              fontSize={14}
-            />
+            <View style={wide ? styles.control : undefined}>
+              <Button
+                label="Upgrade to Pro"
+                onPress={() => void purchase(buyAddOn)}
+                height={wide ? 50 : 44}
+                fontSize={wide ? 15.5 : 14}
+              />
+            </View>
           ) : null}
           {/* Always available: the stores require it, and it is how someone
               recovers an entitlement that did not come back on its own. */}
-          <Button
-            label="Restore purchases"
-            onPress={() => void purchase(restorePurchases)}
-            variant="ghost"
-            height={44}
-            fontSize={14}
-          />
+          <View style={wide ? styles.control : undefined}>
+            <Button
+              label="Restore purchases"
+              onPress={() => void purchase(restorePurchases)}
+              variant="ghost"
+              height={wide ? 46 : 44}
+              fontSize={wide ? 14.5 : 14}
+            />
+          </View>
         </View>
-        <Text style={styles.storageNote}>
+        <Text style={[styles.storageNote, wide && styles.storageNoteWide]}>
           Ferry holds the model accounts. There are no API keys to manage here, and none is ever
           stored on this device.
         </Text>
 
-        <Text style={styles.sectionTitle}>Where your data lives</Text>
-        <Text style={styles.sectionNote}>
+        <Text style={[styles.sectionTitle, wide && styles.sectionTitleWide]}>Where your data lives</Text>
+        <Text style={[styles.sectionNote, wide && styles.sectionNoteWide]}>
           Chats are written to a file on this {Platform.OS === "web" ? "browser" : "device"}, not to
           cache the system can clear. Nothing is uploaded — the relay sees a prompt long enough to
           answer it and keeps no conversation of its own, only a few minutes of the answer's pieces
           so a dropped one can be re-fetched.
         </Text>
-        <View style={styles.dangerRow}>
+        <View style={[styles.dangerRow, wide && styles.dangerRowWide]}>
           <Pressable
             onPress={() => confirmThen("Delete every chat on this device?", clearChats)}
             style={({ hovered }: PressState) => [styles.danger, hovered && { backgroundColor: colors.textHover }]}
@@ -167,7 +173,17 @@ export function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  // The same frame screen A uses: full-window bars, content at a readable
+  // width, sized for the window rather than for a phone held at arm's length.
+  column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
   screen: { flex: 1, backgroundColor: colors.bg },
+  titleWide: { fontSize: 34, marginBottom: 12 },
+  // The same centred width screen A uses, so a button means the same
+  // thing wherever it appears.
+  control: { width: "100%", maxWidth: 580, alignSelf: "center" },
+  subtitleWide: { fontSize: 15.5, lineHeight: 25, maxWidth: 560, marginBottom: 32 },
+  sectionTitleWide: { fontSize: 22, marginTop: 38, marginBottom: 8 },
+  sectionNoteWide: { fontSize: 14, lineHeight: 22, maxWidth: 620 },
   container: { paddingHorizontal: 22, paddingTop: 24 },
   title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, marginBottom: 8, letterSpacing: -0.36 },
   subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.text55, marginBottom: 24, maxWidth: 270, lineHeight: 20 },
@@ -196,10 +212,11 @@ const styles = StyleSheet.create({
   },
   connLabel: { fontFamily: fonts.body, fontSize: 14.5, color: colors.text },
   connLabelLocked: { color: colors.text55 },
-  planAction: { marginTop: 12 },
+  planAction: { marginTop: 12, gap: 10 },
   connStatus: { fontFamily: fonts.body, fontSize: 12, color: colors.accent400 },
   connStatusOff: { color: colors.text40 },
   storageNote: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text40, marginTop: 12, lineHeight: 17 },
+  storageNoteWide: { fontSize: 13.5, lineHeight: 21, marginTop: 14 },
   pathNote: {
     fontFamily: fonts.mono,
     fontSize: 10,
@@ -208,6 +225,8 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   dangerRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
+  // Centred with the rest, so the screen has one column of controls.
+  dangerRowWide: { alignSelf: "center", justifyContent: "center", gap: 12, marginTop: 20 },
   danger: {
     borderWidth: 1,
     borderColor: colors.neutral800,
