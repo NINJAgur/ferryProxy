@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # is one-directional — a relay deployed with this on gives the paid models,
     # which cost real money per answer, to anyone who asks.
     allow_dev_subscription: bool = False
+    # A store's sandbox grants the same entitlement as a real purchase, and it
+    # takes test cards. A relay that honours those is giving the paid models away
+    # to anyone who finds the sandbox checkout, so only a dev relay may.
+    allow_sandbox_purchases: bool = False
+
     # One purchase must not buy unbounded API spend. Over this, paid models fall
     # back to the free one until the month turns over.
     monthly_answer_allowance: int = 300

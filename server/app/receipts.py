@@ -20,6 +20,27 @@ class ReceiptInvalid(Exception):
     """The token did not check out. The caller falls back to the free tier."""
 
 
+def _is_sandbox(subscriber: dict, entitlement: dict) -> bool:
+    """Whether the purchase behind an entitlement was made in a store's sandbox.
+
+    A sandbox purchase is indistinguishable from a real one at the entitlement
+    level — same name, same shape — so the backing purchase has to be found and
+    asked. Anything unrecognised is treated as sandbox: refusing a real purchase
+    is a support ticket, honouring a fake one gives away models that cost money.
+    """
+    product = entitlement.get("product_identifier")
+    for bucket in ("non_subscriptions", "subscriptions"):
+        entries = subscriber.get(bucket, {}).get(product)
+        if entries is None:
+            continue
+        # Non-subscriptions are a list of purchases; subscriptions are one object.
+        latest = entries[-1] if isinstance(entries, list) else entries
+        if isinstance(latest, dict) and "is_sandbox" in latest:
+            return bool(latest["is_sandbox"])
+    logger.warning("could not tell whether %s was a sandbox purchase; assuming it was", product)
+    return True
+
+
 async def verify_receipt(token: str) -> Optional[str]:
     """Return a stable purchase id for a verified receipt, or None.
 
@@ -50,10 +71,14 @@ async def verify_receipt(token: str) -> Optional[str]:
         if response.status_code != 200:
             logger.info("RevenueCat rejected the receipt: %s", response.status_code)
             return None
-        entitlements = response.json().get("subscriber", {}).get("entitlements", {})
-        if REVENUECAT_ENTITLEMENT in entitlements:
-            return token
-        return None
+        subscriber = response.json().get("subscriber", {})
+        entitlement = subscriber.get("entitlements", {}).get(REVENUECAT_ENTITLEMENT)
+        if entitlement is None:
+            return None
+        if _is_sandbox(subscriber, entitlement) and not settings.allow_sandbox_purchases:
+            logger.warning("refused a sandbox purchase: this relay only honours real ones")
+            return None
+        return token
     except httpx.HTTPError:
         # A store we cannot reach must not silently unlock paid models, nor should
         # it break the free tier — so the caller carries on without the add-on.

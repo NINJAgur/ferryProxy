@@ -541,6 +541,10 @@ decides whether the release survives contact with real users.
 - [ ] **17.1** **Paddle account verification.** Identity and bank details. Nothing
       can be sold on the live account until it clears, and the domain
       `pay.rev.cat` needs manual approval — up to 5–7 business days
+- [x] **17.7** Sandbox purchases refused unless `ALLOW_SANDBOX_PURCHASES` is set.
+      A sandbox purchase grants the same `pro` entitlement and is bought with a
+      test card, so honouring one gave the paid models away to anyone who found
+      the sandbox checkout
 - [ ] **17.2** **Render's free tier sleeps and has no disk.** A cold start makes the
       first question hang ~40s, and every deploy wipes purchases and usage counters.
       Fatal once real purchases exist
