@@ -15,6 +15,9 @@ interface HandshakePanelProps {
   relay: CheckState;
   phase: EntitlementPhase;
   unlocked: boolean;
+  /** How many answers the purchase includes. Stated on the button, because what
+      is being sold is a quantity, not permanent access. */
+  answersAllowed: number;
   models: ModelInfo[];
   error: string | null;
   /** What the last purchase or restore did, success or failure. */
@@ -32,6 +35,7 @@ export function HandshakePanel({
   relay,
   phase,
   unlocked: purchased,
+  answersAllowed,
   models,
   error,
   note,
@@ -112,11 +116,12 @@ export function HandshakePanel({
             {!purchased && locked.length > 0 ? (
               <>
                 <Text style={styles.upsellText}>
-                  The stronger models are billed per answer, so they come with a one-off purchase.
-                  Gemini Flash stays free either way.
+                  The stronger models are billed per answer, so one payment buys
+                  {answersAllowed ? ` ${answersAllowed} answers` : " a set number of answers"} on
+                  them. Gemini Flash stays free either way.
                 </Text>
                 <Button
-                  label="Unlock all models"
+                  label={answersAllowed ? `Unlock — ${answersAllowed} answers` : "Unlock all models"}
                   onPress={onUnlock}
                   disabled={working}
                   height={48}

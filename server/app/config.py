@@ -33,11 +33,13 @@ class Settings(BaseSettings):
     # to anyone who finds the sandbox checkout, so only a dev relay may.
     allow_sandbox_purchases: bool = False
 
-    # One purchase must not buy unbounded API spend. Over this, paid models fall
-    # back to the free one until the month turns over.
-    monthly_answer_allowance: int = 300
-    # Neither may a free install. The free model is cheap, not free, so an
-    # anonymous device gets a month's worth of answers and no more.
+    # What one purchase buys, for good. A pool rather than a monthly allowance:
+    # the payment happens once, so the cost it covers has to be finite. A
+    # renewing allowance means a buyer who keeps using it costs money every month
+    # against a payment made once, and eventually costs more than they paid.
+    purchase_answer_allowance: int = 500
+    # The free tier does renew monthly — it is not paid for, so it is a recurring
+    # gift rather than a purchased quantity, and the model behind it is cheap.
     free_answer_allowance: int = 100
 
     default_llm_provider: str = "anthropic"
@@ -52,7 +54,7 @@ class Settings(BaseSettings):
 
     # Shown on the public pricing page. A payment provider verifying a seller
     # expects the advertised price to match what the checkout charges.
-    unlock_price_display: str = "$10"
+    unlock_price_display: str = "$20"
 
     # Shown on the public privacy policy the stores require. A public issue
     # tracker rather than a personal address, so the contact is not someone's inbox.

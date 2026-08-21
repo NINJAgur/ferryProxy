@@ -169,10 +169,42 @@ def test_a_failed_call_does_not_spend_the_allowance(client, monkeypatch):
     assert client.post("/v1/entitlement", headers=HEADERS).json()["answersUsed"] == 0
 
 
+def test_the_pool_does_not_refill_when_the_month_turns_over(client, monkeypatch):
+    """A purchase buys a fixed number of answers, not a monthly allowance.
+
+    Rolling this over would mean one payment covering an unbounded number of
+    answers — the thing the pool exists to prevent.
+    """
+    buy(client)
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+    client.post("/v1/chat", json=build_envelope({"prompt": "hi", "model": PAID_MODEL}), headers=HEADERS)
+
+    # Pretend a month passed.
+    entry = entitlement_store.get(RECEIPT)
+    entry.period = "1999-01"
+    entitlement_store._entries[RECEIPT] = entry
+
+    assert client.post("/v1/entitlement", headers=HEADERS).json()["answersUsed"] == 1
+
+
+def test_the_free_meter_does_refill_monthly(client, monkeypatch):
+    """The free tier is a recurring gift, not a purchased quantity."""
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+    device = {"X-Device-Id": "renewing"}
+    client.post("/v1/chat", json=build_envelope({"prompt": "hi", "model": FREE_MODEL}), headers=device)
+
+    key = ent_module.free_key("renewing")
+    entry = entitlement_store.get(key)
+    entry.period = "1999-01"
+    entitlement_store._entries[key] = entry
+
+    assert ent_module.free_answers_used("renewing") == 0
+
+
 def test_spending_the_allowance_falls_back_rather_than_locking_out(client, monkeypatch):
     buy(client)
-    monkeypatch.setattr(chat_module.settings, "monthly_answer_allowance", 1)
-    monkeypatch.setattr(ent_module.settings, "monthly_answer_allowance", 1)
+    monkeypatch.setattr(chat_module.settings, "purchase_answer_allowance", 1)
+    monkeypatch.setattr(ent_module.settings, "purchase_answer_allowance", 1)
     monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
 
     client.post(
@@ -195,8 +227,8 @@ def test_spending_the_allowance_falls_back_rather_than_locking_out(client, monke
 
 def test_the_free_model_still_answers_once_the_allowance_is_spent(client, monkeypatch):
     buy(client)
-    monkeypatch.setattr(chat_module.settings, "monthly_answer_allowance", 0)
-    monkeypatch.setattr(ent_module.settings, "monthly_answer_allowance", 0)
+    monkeypatch.setattr(chat_module.settings, "purchase_answer_allowance", 0)
+    monkeypatch.setattr(ent_module.settings, "purchase_answer_allowance", 0)
     fake = FakeProvider()
     monkeypatch.setattr(chat_module, "get_provider", lambda name: fake)
 

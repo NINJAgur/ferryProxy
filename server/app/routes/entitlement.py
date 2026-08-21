@@ -33,10 +33,10 @@ async def resolve_entitlement(receipt: str) -> Optional[Entitlement]:
 
 
 def has_allowance(entry: Optional[Entitlement]) -> bool:
-    """Whether a paid answer is still within this month's allowance."""
+    """Whether the purchase has answers left in its pool."""
     if entry is None:
         return False
-    return entry.answers_used < settings.monthly_answer_allowance
+    return entry.answers_used < settings.purchase_answer_allowance
 
 
 # A free install is metered too. The device id is not an identity and a reinstall
@@ -51,7 +51,7 @@ def free_key(device_id: str) -> str:
 
 
 def free_answers_used(device_id: str) -> int:
-    entry = entitlement_store.get(free_key(device_id))
+    entry = entitlement_store.get(free_key(device_id), resets_monthly=True)
     return entry.answers_used if entry else 0
 
 
@@ -61,19 +61,19 @@ def has_free_allowance(device_id: str) -> bool:
 
 def record_free_answer(device_id: str) -> None:
     key = free_key(device_id)
-    if entitlement_store.get(key) is None:
+    if entitlement_store.get(key, resets_monthly=True) is None:
         # Never unlocked: this row counts what a free device used, and must not
         # become something that grants access.
         entitlement_store.grant(key, unlocked=False)
-    entitlement_store.record_answer(key)
+    entitlement_store.record_answer(key, resets_monthly=True)
 
 
 def entitlement_body(entry: Optional[Entitlement]) -> dict:
     """What the caller may use, and how much of the allowance is left.
 
-    Unlocked is deliberately not the same as "has allowance": someone over the
-    cap still owns the add-on, so the models are shown as theirs while the free
-    one carries them until the month turns over.
+    Unlocked is deliberately not the same as "has allowance": someone who has
+    spent their pool still owns the add-on, so the models are shown as theirs
+    while the free one carries on.
     """
     unlocked = entry is not None
     within = has_allowance(entry)
@@ -81,7 +81,7 @@ def entitlement_body(entry: Optional[Entitlement]) -> dict:
     return EntitlementResponse(
         unlocked=unlocked,
         answers_used=used,
-        answers_allowed=settings.monthly_answer_allowance,
+        answers_allowed=settings.purchase_answer_allowance,
         capped=unlocked and not within,
         models=catalogue(subscribed=unlocked and within),
     ).model_dump(by_alias=True)

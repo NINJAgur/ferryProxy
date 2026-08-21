@@ -9,7 +9,7 @@ interface EntitlementState {
   phase: EntitlementPhase;
   /** True once the store confirms the add-on was bought. */
   unlocked: boolean;
-  /** Owns the add-on but has spent this month's answers. */
+  /** Owns the add-on but has spent the answers it included. */
   capped: boolean;
   answersUsed: number;
   answersAllowed: number;

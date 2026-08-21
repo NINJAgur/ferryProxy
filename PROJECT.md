@@ -466,8 +466,9 @@ Phase 15; what it got wrong is worth keeping:
       the whole app's daily budget, shared by every user
 - [x] **12.8** Spending cap set in Google Cloud
 - [x] **12.2** Token counts and cost recorded per answer to `.usage.jsonl`;
-      `scripts/usage_report.py` turns them into cost per answer, cost of a full
-      monthly allowance, and what a buyer costs per year — the numbers 17.4 needs
+      `scripts/usage_report.py` turns them into cost per answer and the cost of a
+      whole purchase. Measured: Haiku $0.00109, Sonnet $0.00581, Opus $0.01911 per
+      answer; blended paid $0.0087. Asking for brevity cuts output 93%
 
 ### Phase 13 — Deployment 🗄️
 - [x] **13.1** Entitlements in a file, not a database
@@ -547,13 +548,19 @@ decides whether the release survives contact with real users.
       A sandbox purchase grants the same `pro` entitlement and is bought with a
       test card, so honouring one gave the paid models away to anyone who found
       the sandbox checkout
+- [ ] **17.7** **The Play product must be a consumable, not a non-consumable.** A
+      pool that can run out has to be re-buyable, and a second purchase has to add
+      to the balance rather than no-op against a receipt id that already exists
 - [ ] **17.2** **Render's free tier sleeps and has no disk.** A cold start makes the
       first question hang ~40s, and every deploy wipes purchases and usage counters.
       Fatal once real purchases exist
-- [ ] **17.4** **The pricing is structurally wrong.** A one-time payment against a
-      monthly renewing allowance means a heavy user costs money every month
-      forever against a single payment. Either price for a lifetime, or make the
-      allowance a fixed pool. 12.2 — cost per answer — is the data that settles it
+- [x] **17.4 / 12.5** **Priced from the measured cost.** A one-time payment against
+      a renewing allowance meant a heavy user cost money every month forever against
+      one payment — $31/year at 300 answers/month. Settled instead as **$20 for a
+      fixed pool of 500 paid answers**, which caps the cost of a customer at ~$4.35
+      however long they stay. The free tier still renews monthly: nobody paid for it,
+      and Flash is cheap. Terms, pricing page and the in-app buy button all state the
+      quantity rather than promising permanent access
 - [x] **17.5** Retry budget retuned: 40 attempts, 1s backoff cap. Re-measured at
       90% loss: **4/5**, median 37.6s, against **0/10** before. Send retries kept
       at 5 and separated — a chunk fetch is free, a send costs a real answer

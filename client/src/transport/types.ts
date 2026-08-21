@@ -66,12 +66,12 @@ export interface ModelInfo {
 }
 
 /** What this device may use. There is no account — only whether the add-on was
- *  bought, and how much of this month's allowance is left. */
+ *  bought, and how many of the answers it included are left. */
 export interface EntitlementInfo {
   unlocked: boolean;
   answersUsed: number;
   answersAllowed: number;
-  /** Owns the add-on but has spent the month's answers; the free model carries on. */
+  /** Owns the add-on but has spent its answers; the free model carries on. */
   capped: boolean;
   models: ModelInfo[];
 }

@@ -32,13 +32,17 @@ most apps, and carries the answers back. These terms cover using it and buying t
 add-on.</p>
 
 <h2>What you are buying</h2>
-<p>One payment, once. It unlocks the paid models — Claude, GPT and Gemini Pro — and
-lets you choose which version answers you. It is <strong>not</strong> a subscription
-and does not renew.</p>
-<p>Paid models come with a monthly allowance of answers. If you reach it, the free
-model continues to work until the month turns over. The allowance exists so that one
-payment cannot buy unlimited use of models that cost money per answer.</p>
-<p>Gemini Flash is free, with its own monthly allowance, and needs no purchase.</p>
+<p>One payment, once. It is <strong>not</strong> a subscription: nothing recurs,
+nothing renews, and there is nothing to cancel. What it buys is a quantity rather
+than a period — a fixed number of answers on the paid models, Claude, GPT and
+Gemini Pro, with your choice of which version answers you.</p>
+<p>The purchase includes that fixed number of answers on the paid models — the number
+shown on the <a href="/pricing">pricing page</a> at the time you buy. They do not
+expire and they do not renew: one payment buys that many answers, for as long as you
+take to use them. When they run out, the free model continues to work.</p>
+<p>The pool is finite because each answer costs us money from the provider, and the
+payment happens once. Buying more is a matter of buying again.</p>
+<p>Gemini Flash is free, with a monthly allowance that renews, and needs no purchase.</p>
 
 <h2>What Ferry cannot promise</h2>
 <ul>

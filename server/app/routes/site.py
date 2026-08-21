@@ -93,7 +93,7 @@ companies charge per answer; Ferry pays them and passes on access.</p>
   <span class="tag">Free</span>
   <p class="price">$0</p>
   <p>Carries to Google's Gemini Flash immediately. No account, no card, no setup.
-  Includes a monthly fair-use allowance.</p>
+  Includes a monthly allowance that renews.</p>
 </div>
 
 <div class="card">
@@ -103,9 +103,11 @@ companies charge per answer; Ferry pays them and passes on access.</p>
   Claude, OpenAI's GPT and Google's Gemini Pro, and you choose which version
   answers you.</p>
   <ul>
+    <li><strong>{pool} answers</strong> across Claude, GPT and Gemini Pro, to use in
+        your own time. They do not expire.</li>
     <li>Paid once. It does not renew, and there is nothing to cancel.</li>
-    <li>Includes a monthly allowance of answers on the paid models. Beyond it, the
-        free model keeps working until the month turns over.</li>
+    <li>When the answers run out, Gemini Flash keeps working free. Buy again if you
+        want more.</li>
     <li>Restores on a new device without an account.</li>
   </ul>
 </div>
@@ -166,7 +168,9 @@ async def home() -> HTMLResponse:
 
 @router.get("/pricing", response_class=HTMLResponse)
 async def pricing() -> HTMLResponse:
-    return HTMLResponse(_PRICING.format(style=_STYLE, nav=_NAV, price=settings.unlock_price_display))
+    return HTMLResponse(_PRICING.format(style=_STYLE, nav=_NAV,
+                                        price=settings.unlock_price_display,
+                                        pool=settings.purchase_answer_allowance))
 
 
 @router.get("/refunds", response_class=HTMLResponse)

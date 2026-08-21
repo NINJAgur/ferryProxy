@@ -49,8 +49,8 @@ below.</p>
   <li><strong>A random identifier</strong> created by the app, with a count of how many
       free answers it has used this month. It is not linked to you, your account or
       your device's hardware.</li>
-  <li><strong>A purchase identifier</strong>, if you bought the add-on, with how many
-      paid answers you have used this month.</li>
+  <li><strong>A purchase identifier</strong>, if you bought the add-on, with how many of
+      the answers it bought have been used.</li>
 </ul>
 
 <h2>Asking us to delete those</h2>

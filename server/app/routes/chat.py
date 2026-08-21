@@ -99,7 +99,7 @@ async def chat(
             return _error(
                 429,
                 "allowance_spent",
-                f"{model_entry.label} is included, but this month's answers are used up",
+                f"{model_entry.label} is included, but the answers bought with it are used up",
             )
         return _error(403, "model_locked", f"{model_entry.label} needs the add-on")
 

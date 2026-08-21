@@ -63,35 +63,40 @@ class EntitlementStore:
         except OSError:
             logger.exception("could not write the entitlement store")
 
-    def _fresh(self, entry: Entitlement) -> Entitlement:
-        """Reset the counter when the month has turned over."""
-        if entry.rolled_over():
+    def _fresh(self, entry: Entitlement, resets_monthly: bool) -> Entitlement:
+        """Reset the counter when the month has turned over, for those that renew.
+
+        A purchase does not renew. It buys a fixed pool of answers, so its counter
+        runs for the life of the purchase — resetting it monthly would mean one
+        payment covering an unbounded number of answers. The free tier does renew,
+        because nobody paid for it.
+        """
+        if resets_monthly and entry.rolled_over():
             entry.period = current_period()
             entry.answers_used = 0
         return entry
 
-    def get(self, receipt_id: str) -> Optional[Entitlement]:
+    def get(self, receipt_id: str, resets_monthly: bool = False) -> Optional[Entitlement]:
         with _LOCK:
             entry = self._entries.get(receipt_id)
-            return self._fresh(entry) if entry else None
+            return self._fresh(entry, resets_monthly) if entry else None
 
     def grant(self, receipt_id: str, unlocked: bool = True) -> Entitlement:
         """Record what the store told us about a purchase."""
         with _LOCK:
             entry = self._entries.get(receipt_id) or Entitlement(receipt_id=receipt_id)
-            self._fresh(entry)
             entry.unlocked = unlocked
             self._entries[receipt_id] = entry
             self._save()
             return entry
 
-    def record_answer(self, receipt_id: str) -> Optional[Entitlement]:
-        """Count one paid answer against this month's allowance."""
+    def record_answer(self, receipt_id: str, resets_monthly: bool = False) -> Optional[Entitlement]:
+        """Count one answer against whatever allowance this id has."""
         with _LOCK:
             entry = self._entries.get(receipt_id)
             if entry is None:
                 return None
-            self._fresh(entry)
+            self._fresh(entry, resets_monthly)
             entry.answers_used += 1
             self._save()
             return entry

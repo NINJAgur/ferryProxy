@@ -295,6 +295,7 @@ export function HomeScreen() {
           relay={relay}
           phase={entitlement.phase}
           unlocked={entitlement.unlocked}
+          answersAllowed={entitlement.answersAllowed}
           models={entitlement.models}
           error={entitlement.error}
           note={purchaseNote}

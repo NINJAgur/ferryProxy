@@ -102,8 +102,8 @@ export function SettingsScreen() {
         {entitlement.unlocked ? (
           <Text style={styles.storageNote}>
             {entitlement.capped
-              ? `You've used all ${entitlement.answersAllowed} answers this month. Gemini Flash carries on free until the month turns over.`
-              : `${entitlement.answersAllowed - entitlement.answersUsed} of ${entitlement.answersAllowed} answers left this month.`}
+              ? `You've used all ${entitlement.answersAllowed} answers your purchase included. Gemini Flash carries on free.`
+              : `${entitlement.answersAllowed - entitlement.answersUsed} of ${entitlement.answersAllowed} answers left.`}
           </Text>
         ) : null}
         <View style={styles.planAction}>
