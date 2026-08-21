@@ -36,16 +36,20 @@ _NAV = """<nav>
 _HOME = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ferry — AI over a weak connection</title><style>{style}</style></head><body><main>
+<title>Ferry — a transport layer for weak connections</title><style>{style}</style></head><body><main>
 
 <h1>Ferry</h1>
-<p class="sub">Ask AI over a connection too weak for a normal app.</p>
+<p class="sub">A transport layer for connections that barely work.</p>
 
 <p>A bar of signal on a train. Hotel wifi that drops every thirty seconds. The edge
 of a village, an airport queue, a basement. Most apps assume a good connection and
-spin forever. Ferry assumes the opposite.</p>
+spin forever when they do not get one. Ferry is built the other way round: it
+assumes the line will drop, and gets what it can across anyway.</p>
 
-<h2>How it works</h2>
+<p>It is a client. Ferry runs no service of its own — it carries your question to
+whichever assistant you choose, and carries the answer back in one piece.</p>
+
+<h2>What it actually does</h2>
 <ul>
   <li>Requests and answers are compressed — but only when compression actually
       helps, so nothing is ever made bigger by being wrapped up.</li>
@@ -58,8 +62,13 @@ spin forever. Ferry assumes the opposite.</p>
 </ul>
 
 <h2>What it costs</h2>
-<p>Free to install, with free use of Google's Gemini Flash and no account. One
-optional payment unlocks the stronger models. See <a href="/pricing">pricing</a>.</p>
+<p>Free to install, with no account and no setup. One optional payment adds the
+other providers Ferry can carry to. See <a href="/pricing">pricing</a>.</p>
+
+<h2>Who answers</h2>
+<p>Ferry does not write answers and operates no model of its own. Questions are
+relayed to Anthropic, OpenAI or Google — whichever you pick — under their terms and
+their content policies, which Ferry does not modify or bypass.</p>
 
 <h2>Your conversations</h2>
 <p>Ferry has no accounts. Chats are stored on your own device and are never
@@ -77,18 +86,22 @@ _PRICING = """<!doctype html>
 <h1>Pricing</h1>
 <p class="sub">One optional payment. No subscription.</p>
 
+<p>Ferry carries questions to assistants operated by other companies. Those
+companies charge per answer; Ferry pays them and passes on access.</p>
+
 <div class="card">
   <span class="tag">Free</span>
   <p class="price">$0</p>
-  <p>Google Gemini Flash, immediately. No account, no card, no setup. Includes a
-  monthly fair-use allowance of answers.</p>
+  <p>Carries to Google's Gemini Flash immediately. No account, no card, no setup.
+  Includes a monthly fair-use allowance.</p>
 </div>
 
 <div class="card">
   <span class="tag">One-time purchase</span>
   <p class="price">{price}</p>
-  <p><strong>Unlock all models.</strong> Anthropic's Claude, OpenAI's GPT and
-  Google's Gemini Pro, and the choice of which version answers you.</p>
+  <p><strong>Adds the other providers.</strong> Ferry can then carry to Anthropic's
+  Claude, OpenAI's GPT and Google's Gemini Pro, and you choose which version
+  answers you.</p>
   <ul>
     <li>Paid once. It does not renew, and there is nothing to cancel.</li>
     <li>Includes a monthly allowance of answers on the paid models. Beyond it, the

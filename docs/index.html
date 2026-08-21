@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ferry — AI over a weak connection</title><style>
+<title>Ferry — a transport layer for weak connections</title><style>
   :root { color-scheme: dark; }
   body { margin:0; padding:2.5rem 1.25rem 4rem; background:#161826; color:#e9e9ed;
          font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
@@ -21,13 +21,17 @@
 </style></head><body><main>
 
 <h1>Ferry</h1>
-<p class="sub">Ask AI over a connection too weak for a normal app.</p>
+<p class="sub">A transport layer for connections that barely work.</p>
 
 <p>A bar of signal on a train. Hotel wifi that drops every thirty seconds. The edge
 of a village, an airport queue, a basement. Most apps assume a good connection and
-spin forever. Ferry assumes the opposite.</p>
+spin forever when they do not get one. Ferry is built the other way round: it
+assumes the line will drop, and gets what it can across anyway.</p>
 
-<h2>How it works</h2>
+<p>It is a client. Ferry runs no service of its own — it carries your question to
+whichever assistant you choose, and carries the answer back in one piece.</p>
+
+<h2>What it actually does</h2>
 <ul>
   <li>Requests and answers are compressed — but only when compression actually
       helps, so nothing is ever made bigger by being wrapped up.</li>
@@ -40,8 +44,13 @@ spin forever. Ferry assumes the opposite.</p>
 </ul>
 
 <h2>What it costs</h2>
-<p>Free to install, with free use of Google's Gemini Flash and no account. One
-optional payment unlocks the stronger models. See <a href="pricing.html">pricing</a>.</p>
+<p>Free to install, with no account and no setup. One optional payment adds the
+other providers Ferry can carry to. See <a href="pricing.html">pricing</a>.</p>
+
+<h2>Who answers</h2>
+<p>Ferry does not write answers and operates no model of its own. Questions are
+relayed to Anthropic, OpenAI or Google — whichever you pick — under their terms and
+their content policies, which Ferry does not modify or bypass.</p>
 
 <h2>Your conversations</h2>
 <p>Ferry has no accounts. Chats are stored on your own device and are never
