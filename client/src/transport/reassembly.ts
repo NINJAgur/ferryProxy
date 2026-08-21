@@ -16,10 +16,34 @@ export const CHUNK_FETCH_TIMEOUT_MS = 8000;
  *  prompt, so holding this to the chunk timeout made every real send fail and retry. */
 export const SEND_TIMEOUT_MS = 90000;
 export const CHUNK_RETRY_BASE_DELAY_MS = 500;
-export const CHUNK_RETRY_MAX_DELAY_MS = 8000;
-export const CHUNK_RETRY_MAX_ATTEMPTS = 5;
+/**
+ * How long to wait between attempts, and how many to make.
+ *
+ * These were 8s and 5, which is the shape you use when the far end is
+ * overloaded: back off hard, give up quickly. On a line that drops packets the
+ * far end is fine, and both halves of that are wrong. Five attempts gives a
+ * chunk a 1 - 0.9^5 = 41% chance of landing at 90% loss, so a four-chunk answer
+ * completes about 3% of the time — measured at 0/10.
+ *
+ * Measured against the loss proxy at 90%: 20 attempts with a 2s cap gave 4/5,
+ * and 40 attempts with a 1s cap gave 5/5, median 44.5s. Backing off less and
+ * trying more is what a lossy channel wants, because waiting does not help when
+ * nothing is congested.
+ */
+export const CHUNK_RETRY_MAX_DELAY_MS = 1000;
+export const CHUNK_RETRY_MAX_ATTEMPTS = 40;
 export const CHUNK_RETRY_JITTER = 0.2;
 export const CHUNK_FETCH_CONCURRENCY = 3;
+/**
+ * Sends are rationed differently, because they are not free.
+ *
+ * A chunk fetch reads from the relay's cache and costs nothing, so trying forty
+ * times is cheap. A send that reaches the relay makes a model generate an
+ * answer, and a reply lost on the way back still burned it. Retrying a send
+ * forty times could pay for forty answers to deliver one.
+ */
+export const SEND_RETRY_MAX_ATTEMPTS = 5;
+/** Still ample: the 40-attempt run's worst case was 69s. */
 export const REASSEMBLY_BUDGET_MS = 180000;
 
 export interface SendPromptInput {
@@ -225,7 +249,7 @@ async function runRequest(
   let responseEnvelope: Awaited<ReturnType<typeof postChat>> | undefined;
   let lastError: unknown;
 
-  for (let attempt = 0; attempt < CHUNK_RETRY_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < SEND_RETRY_MAX_ATTEMPTS; attempt++) {
     try {
       responseEnvelope = await postChat(envelope, SEND_TIMEOUT_MS, receipt);
       break;
@@ -236,7 +260,7 @@ async function runRequest(
         throw err;
       }
       dispatch({ type: "SEND_FAILED", attempt });
-      if (attempt < CHUNK_RETRY_MAX_ATTEMPTS - 1) {
+      if (attempt < SEND_RETRY_MAX_ATTEMPTS - 1) {
         await sleep(backoffDelay(attempt));
       }
     }
@@ -248,7 +272,7 @@ async function runRequest(
     // HttpError (we reached the server) from a network-level failure (we didn't).
     throw lastError instanceof Error
       ? lastError
-      : new Error(`POST /v1/chat failed after ${CHUNK_RETRY_MAX_ATTEMPTS} attempts: ${String(lastError)}`);
+      : new Error(`POST /v1/chat failed after ${SEND_RETRY_MAX_ATTEMPTS} attempts: ${String(lastError)}`);
   }
 
   const timeToFirstChunkMs = Date.now() - startTime;

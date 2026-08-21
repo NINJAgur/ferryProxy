@@ -487,8 +487,8 @@ blockers, not deployment tasks.
 ### Phase 14 — Outstanding engineering 🔧
 - [x] **14.1** The 90% packet-loss proof exists and runs — see 17.5 for the result
 - [ ] **14.3** Shared-dictionary compression to beat the ~700 B crossover
-- [ ] **14.4** Delete orphans: `TunnelButton.tsx`, `ProviderSelector.tsx`, and
-      `server/app/db.py` + `models.py` from the abandoned database approach
+- [x] **14.4** Orphans deleted: `TunnelButton.tsx`, `ProviderSelector.tsx`,
+      `server/app/db.py`, `server/app/models.py`
 
 ### Phase 15 — Three ways to ship one app 📦
 Distribution and billing are separate choices. RevenueCat normalises both into a
@@ -550,9 +550,9 @@ decides whether the release survives contact with real users.
       monthly renewing allowance means a heavy user costs money every month
       forever against a single payment. Either price for a lifetime, or make the
       allowance a fixed pool. 12.2 — cost per answer — is the data that settles it
-- [ ] **17.5** **Ferry fails its own 90% packet-loss proof**: 0/10 answers
-      reassembled, against 10/10 with no loss. 40 attempts with a 1s backoff cap
-      gives 5/5; the constants are deliberately unchanged
+- [x] **17.5** Retry budget retuned: 40 attempts, 1s backoff cap. Re-measured at
+      90% loss: **4/5**, median 37.6s, against **0/10** before. Send retries kept
+      at 5 and separated — a chunk fetch is free, a send costs a real answer
 - [ ] **17.6** **Never run on a phone.** Every test so far has been a desktop
       browser. 14.2 remains open
 
