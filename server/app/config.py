@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     chunk_size_bytes: int = 512
     cache_ttl_seconds: int = 300
 
+    # Where answers wait to be collected. On the same volume as the entitlement
+    # store in production, so a deploy mid-answer does not lose one that has
+    # already been generated and paid for.
+    chunk_cache_path: str = ".chunks"
+
+    # Codes that let a web purchase move to another device. Belongs on the same
+    # volume as the entitlement store: losing it strands every web buyer.
+    restore_code_store_path: str = ".restore-codes.json"
+
     # Comma-separated origins allowed to call the relay from a browser. The
     # native app sends no Origin at all, so this only constrains web.
     cors_allow_origins: str = "*"

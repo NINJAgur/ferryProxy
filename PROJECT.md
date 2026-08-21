@@ -482,7 +482,12 @@ Phase 15; what it got wrong is worth keeping:
 - [x] **13.9** **Relay live** at `ferryproxy.onrender.com`, verified end to end
 - [x] **13.13** Public pages the stores require: `/privacy`, `/delete-data`,
       `/terms`, `/purchase-complete`, each also a static copy in `docs/`
-- [ ] **13.10** Replace the in-memory chunk cache, or keep the relay on one instance
+- [x] **13.10** **Chunks are backed by the mounted disk.** A chunked answer is
+      collected over a minute or more of a bad line; a restart in the middle lost it,
+      and the client then spent its forty retries asking for pieces that no longer
+      existed — an answer already generated and paid for, gone. Memory stays the hot
+      path; `CHUNK_CACHE_PATH` holds the copy, expiry moved to wall-clock time so it
+      outlives the process, and startup sweeps what nobody came back for
 
 Hosting problems moved to **Phase 17**, where they belong: they are launch
 blockers, not deployment tasks.
@@ -515,16 +520,16 @@ customer id, so `receipts.py` never learns which was used.
 - [x] **15.7** The customer id is a **path segment**, not the query parameter
       RevenueCat's prose describes. A link without one 404s rather than erroring,
       so the wrong shape looked exactly like a broken link
-- [ ] **15.5** Web billing has no cross-device restore — a reinstall loses the
-      purchase. Needs the checkout email or a redemption code
-
-### Phase 16 — Google Play 🤖
-iOS is dropped, not postponed: $99/yr and no iPhone to test on. `playBilling.ts`
-still reads an iOS key, so nothing needs undoing if that ever changes.
-
-Account approved, AAB uploaded to internal testing. **The 12-tester rule applies**
-— confirmed in the console. Production is ~3 weeks out; internal testing works now.
-
+- [x] **15.5** **Restore codes.** Play can be asked what an account bought; a
+      browser checkout cannot, so a web purchase was stranded on the install that
+      made it. The buyer is now given a code that resolves to the customer id the
+      purchase was made under — the store still decides entitlement and what is left
+      of the pool, so the code is a portable alias, not a second source of truth.
+      Shown in Settings once unlocked, entered there on a new device
+- [x] **15.8** **A device holding a restore code buys as the customer it points
+      at.** Otherwise the purchase link carried this install's id, RevenueCat opened
+      a second customer with its own transaction, and the receipt — the code — still
+      resolved to the first. The second $20 bought answers the relay never saw
 - [x] **16.1** Play Console account approved
 - [x] **16.3** AAB built (`eas build -p android --profile production`) and uploaded
       to the internal testing track

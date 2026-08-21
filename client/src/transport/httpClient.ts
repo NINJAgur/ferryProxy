@@ -161,3 +161,32 @@ async function safeJson<T>(response: Response): Promise<T | undefined> {
     return undefined;
   }
 }
+
+/**
+ * A code the buyer can carry to another device.
+ *
+ * Play can be asked what an account bought; a browser checkout cannot, so a web
+ * purchase would otherwise be stranded on the install that made it.
+ */
+export async function fetchRestoreCode(receipt?: string): Promise<string> {
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/v1/restore-code`,
+    { method: "POST", headers: await callerHeaders(receipt) },
+    COLD_START_TIMEOUT_MS
+  );
+  if (!response.ok) throw new HttpError(response.status, await safeJson<ErrorEnvelope>(response));
+  const body = (await response.json()) as { code: string };
+  return body.code;
+}
+
+/** Which store customer a purchase from this device should be recorded against. */
+export async function fetchCustomerId(receipt: string): Promise<string> {
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/v1/customer`,
+    { method: "POST", headers: await callerHeaders(receipt) },
+    COLD_START_TIMEOUT_MS
+  );
+  if (!response.ok) throw new HttpError(response.status, await safeJson<ErrorEnvelope>(response));
+  const body = (await response.json()) as { customerId: string };
+  return body.customerId;
+}

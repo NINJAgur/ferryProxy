@@ -1,5 +1,5 @@
-import React from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FadingRule } from "../components/FadingRule";
 import { PressState } from "../components/pressState";
@@ -9,6 +9,8 @@ import { groupByProvider, groupUnlocked, PROVIDER_NAME, providerStatus } from ".
 import { chatFileLocation } from "../state/fileStorage";
 import { useEntitlementStore } from "../state/entitlementStore";
 import { buyAddOn, restorePurchases } from "../billing";
+import { CODE_PREFIX, rememberCode } from "../billing/restoreCode";
+import { fetchRestoreCode } from "../transport/httpClient";
 import { CHAT_FILE, useThreadStore } from "../state/threadStore";
 import { useMetricsStore } from "../state/metricsStore";
 import { SettingsValues, useSettingsStore } from "../state/settingsStore";
@@ -55,9 +57,31 @@ async function purchase(step: () => Promise<{ receipt: string | null }>): Promis
 
 export function SettingsScreen() {
   const wide = useWide();
+  // A purchase made in a browser has no store to ask "what did this person
+  // buy?", so the buyer is given something to carry to their next device.
+  const [code, setCode] = useState<string | null>(null);
+  const [codeDraft, setCodeDraft] = useState("");
+  const [codeNote, setCodeNote] = useState<string | null>(null);
   const settings = useSettingsStore();
   const entitlement = useEntitlementStore();
   const clearChats = useThreadStore((t) => t.clearAll);
+
+  async function showCode(): Promise<void> {
+    try {
+      setCode(await fetchRestoreCode(entitlement.receipt ?? undefined));
+    } catch {
+      setCodeNote("Couldn't fetch a code. Try again in a moment.");
+    }
+  }
+
+  async function applyCode(): Promise<void> {
+    const tidy = codeDraft.trim().toUpperCase();
+    if (!tidy) return;
+    await rememberCode(tidy);
+    await entitlement.load(`${CODE_PREFIX}${tidy}`);
+    const worked = useEntitlementStore.getState().unlocked;
+    setCodeNote(worked ? "Restored." : "That code doesn't match a purchase.");
+  }
   const clearMetrics = useMetricsStore((m) => m.clear);
 
   return (
@@ -108,6 +132,53 @@ export function SettingsScreen() {
               : `${entitlement.answersAllowed - entitlement.answersUsed} of ${entitlement.answersAllowed} answers left.`}
           </Text>
         ) : null}
+        {entitlement.unlocked ? (
+          <View style={styles.planAction}>
+            {code ? (
+              <>
+                <Text style={[styles.sectionNote, wide && styles.sectionNoteWide]}>
+                  Your restore code. Write it down — it is the only way to move this purchase
+                  to another device or browser.
+                </Text>
+                <Text selectable style={styles.code}>{code}</Text>
+              </>
+            ) : (
+              <View style={wide ? styles.control : undefined}>
+                <Button
+                  label="Show restore code"
+                  onPress={() => void showCode()}
+                  variant="ghost"
+                  height={wide ? 46 : 44}
+                  fontSize={wide ? 14.5 : 14}
+                />
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={[styles.planAction, wide && styles.control]}>
+            <Text style={[styles.sectionNote, wide && styles.sectionNoteWide]}>
+              Bought Ferry Pro somewhere else? Enter the restore code you were given.
+            </Text>
+            <TextInput
+              style={styles.codeInput}
+              placeholder="ABCD-EFGH-JKLM"
+              placeholderTextColor={colors.text40}
+              value={codeDraft}
+              onChangeText={setCodeDraft}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+            <Button
+              label="Use code"
+              onPress={() => void applyCode()}
+              variant="ghost"
+              height={wide ? 46 : 44}
+              fontSize={wide ? 14.5 : 14}
+            />
+          </View>
+        )}
+        {codeNote ? <Text style={styles.storageNote}>{codeNote}</Text> : null}
+
         <View style={styles.planAction}>
           {!entitlement.unlocked && entitlement.models.some((m) => !m.unlocked) ? (
             <View style={wide ? styles.control : undefined}>
@@ -213,6 +284,17 @@ const styles = StyleSheet.create({
   connLabel: { fontFamily: fonts.body, fontSize: 14.5, color: colors.text },
   connLabelLocked: { color: colors.text55 },
   planAction: { marginTop: 12, gap: 10 },
+  code: { fontFamily: fonts.mono, fontSize: 18, color: colors.accent400, letterSpacing: 1.5 },
+  codeInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.neutral800,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    color: colors.text,
+    fontFamily: fonts.mono,
+    fontSize: 15,
+  },
   connStatus: { fontFamily: fonts.body, fontSize: 12, color: colors.accent400 },
   connStatusOff: { color: colors.text40 },
   storageNote: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text40, marginTop: 12, lineHeight: 17 },

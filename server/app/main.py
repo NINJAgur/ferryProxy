@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,7 +17,13 @@ from app.routes.terms import router as terms_router
 configure_logging()
 
 app = FastAPI(title="proxyAI")
-app.state.response_cache = ResponseCache(ttl_seconds=settings.cache_ttl_seconds)
+_CACHE_DIR = Path(settings.chunk_cache_path)
+if not _CACHE_DIR.is_absolute():
+    _CACHE_DIR = Path(__file__).resolve().parent.parent / _CACHE_DIR
+
+app.state.response_cache = ResponseCache(ttl_seconds=settings.cache_ttl_seconds, directory=_CACHE_DIR)
+# Nothing else deletes what nobody came back for.
+app.state.response_cache.sweep()
 
 # The native app sends no Origin, so this only constrains browsers. "*" suits a
 # dev machine, where the app runs from whatever port Expo picked.

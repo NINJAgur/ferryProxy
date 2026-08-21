@@ -14,6 +14,9 @@ server/.certs/
 
 # Entitlement store — stands in for a database, holds purchase receipts
 server/.entitlements.json
+# Codes that unlock a purchase, and answers waiting to be collected.
+server/.restore-codes.json
+server/.chunks/
 
 # Node / Expo
 client/node_modules/

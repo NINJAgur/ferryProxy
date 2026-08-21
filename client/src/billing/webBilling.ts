@@ -1,7 +1,8 @@
 import { Linking } from "react-native";
 
 import { deviceId } from "../transport/deviceId";
-import { BASE_URL, fetchEntitlement } from "../transport/httpClient";
+import { BASE_URL, fetchCustomerId, fetchEntitlement } from "../transport/httpClient";
+import { CODE_PREFIX, storedCode } from "./restoreCode";
 import { BillingProvider, PurchaseResult } from "./types";
 
 /**
@@ -39,7 +40,7 @@ export const webBilling: BillingProvider = {
     // RevenueCat takes the customer id as a trailing path segment, not a query
     // parameter. A link without one 404s rather than erroring, so getting this
     // shape wrong looks exactly like a broken purchase link.
-    const id = await deviceId();
+    const id = await purchaseCustomerId();
     const url = `${PURCHASE_URL.replace(/\/+$/, "")}/${encodeURIComponent(id)}`;
 
     try {
@@ -81,13 +82,37 @@ async function devGrant(): Promise<PurchaseResult> {
 }
 
 /**
+ * Who a purchase from this install belongs to.
+ *
+ * Usually this device. But a device that restored with a code is not the one
+ * that bought, and buying as itself would open a second customer with its own
+ * pool — answers paid for that the relay never adds to the first.
+ */
+async function purchaseCustomerId(): Promise<string> {
+  const code = await storedCode();
+  if (!code) return deviceId();
+  try {
+    return await fetchCustomerId(`${CODE_PREFIX}${code}`);
+  } catch {
+    // Better to buy as this device than not at all; it leaves a pool to
+    // reconcile by hand rather than a checkout that will not open.
+    return deviceId();
+  }
+}
+
+/**
  * What this install calls itself to the relay.
  *
- * A real web purchase is recorded by RevenueCat against the bare device id. A
- * development grant has to carry the `dev:` prefix, or verification falls through
- * to RevenueCat and refuses it — which looked exactly like a purchase failing.
+ * A restore code wins when there is one: it is the whole reason a purchase can
+ * move to another device, and the id this install generated has never been seen
+ * by the store. Otherwise a real web purchase is recorded by RevenueCat against
+ * the bare device id, and a development grant has to carry the `dev:` prefix, or
+ * verification falls through to RevenueCat and refuses it — which looked exactly
+ * like a purchase failing.
  */
 async function receiptId(): Promise<string> {
+  const code = await storedCode();
+  if (code) return `${CODE_PREFIX}${code}`;
   const id = await deviceId();
   return PURCHASE_URL ? id : `dev:${id}`;
 }

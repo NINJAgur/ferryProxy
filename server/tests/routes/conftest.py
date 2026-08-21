@@ -19,6 +19,15 @@ def _isolated_usage_log(tmp_path, monkeypatch):
     monkeypatch.setattr(usage, "_PATH", tmp_path / "usage.jsonl")
 
 
+@pytest.fixture(autouse=True)
+def _isolated_chunk_cache(tmp_path):
+    """Cached answers land in the test's own directory, not the relay's."""
+    cache = app.state.response_cache
+    cache._dir = tmp_path / "chunks"
+    cache._dir.mkdir(parents=True, exist_ok=True)
+    cache._entries = {}
+
+
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
