@@ -24,19 +24,38 @@ def _error(status_code: int, error: str, message: str) -> JSONResponse:
 
 
 async def resolve_entitlement(receipt: str) -> Optional[Entitlement]:
-    """The purchase behind this receipt, if it verifies and is still unlocked."""
-    receipt_id = await verify_receipt(receipt)
-    if receipt_id is None:
+    """The purchase behind this receipt, if it verifies and is still unlocked.
+
+    The row is keyed by the store's transaction id, not by the receipt the caller
+    sent, so reinstalling finds the pool it already spent from instead of a fresh
+    one.
+    """
+    purchase = await verify_receipt(receipt)
+    if purchase is None:
         return None
-    entry = entitlement_store.get(receipt_id)
+
+    entry = entitlement_store.get(purchase.id)
+    if entry is None and not purchase.dev:
+        # A real purchase the relay has not seen before. Without this it would
+        # verify against the store and then find nothing to spend.
+        entry = entitlement_store.grant(purchase.id, purchases=purchase.count)
+    elif entry and entry.unlocked and entry.purchases != purchase.count:
+        # Bought again: another pool, with what is already spent left in place.
+        entry = entitlement_store.grant(purchase.id, purchases=purchase.count)
     return entry if entry and entry.unlocked else None
+
+
+def allowance(entry: Optional[Entitlement]) -> int:
+    """How many answers this row has bought in total."""
+    purchases = max(entry.purchases, 1) if entry else 1
+    return settings.purchase_answer_allowance * purchases
 
 
 def has_allowance(entry: Optional[Entitlement]) -> bool:
     """Whether the purchase has answers left in its pool."""
     if entry is None:
         return False
-    return entry.answers_used < settings.purchase_answer_allowance
+    return entry.answers_used < allowance(entry)
 
 
 # A free install is metered too. The device id is not an identity and a reinstall
@@ -81,7 +100,7 @@ def entitlement_body(entry: Optional[Entitlement]) -> dict:
     return EntitlementResponse(
         unlocked=unlocked,
         answers_used=used,
-        answers_allowed=settings.purchase_answer_allowance,
+        answers_allowed=allowance(entry),
         capped=unlocked and not within,
         models=catalogue(subscribed=unlocked and within),
     ).model_dump(by_alias=True)

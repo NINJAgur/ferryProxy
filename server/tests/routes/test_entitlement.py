@@ -1,6 +1,8 @@
 import pytest
 
 from app import catalogue as cat
+from app import receipts
+from app.config import settings
 from app.entitlement import entitlement_store
 from app.llm.base import LLMResult
 from app.routes import chat as chat_module
@@ -345,3 +347,55 @@ def test_a_buyer_is_not_charged_against_the_free_meter(client, monkeypatch):
         headers={**HEADERS, "X-Device-Id": "buyer-device"},
     )
     assert response.status_code == 200
+
+
+# --- Keying: the pool belongs to the purchase, not to the install ------------
+
+STORE_HEADERS = {"X-Store-Receipt": "install-abc"}
+TRANSACTION = "GPA.3311-8834-1201"
+
+
+def store_purchase(monkeypatch, count=1, transaction=TRANSACTION):
+    """Stand in for RevenueCat reporting a real, non-sandbox purchase."""
+    async def verify(token):
+        return receipts.Purchase(id=transaction, count=count)
+
+    monkeypatch.setattr(ent_module, "verify_receipt", verify)
+
+
+def test_a_store_purchase_the_relay_has_never_seen_gets_a_row(client, monkeypatch):
+    """Without this a real purchase verifies and then finds nothing to spend."""
+    store_purchase(monkeypatch)
+
+    body = client.post("/v1/entitlement", headers=STORE_HEADERS).json()
+
+    assert body["unlocked"] is True
+    # Keyed by the transaction, not by the token the device sent.
+    assert entitlement_store.get(TRANSACTION) is not None
+    assert entitlement_store.get("install-abc") is None
+
+
+def test_reinstalling_finds_the_pool_it_already_spent_from(client, monkeypatch):
+    store_purchase(monkeypatch)
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+    payload = build_envelope({"prompt": "hi", "model": PAID_MODEL})
+    client.post("/v1/chat", json=payload, headers=STORE_HEADERS)
+
+    # A reinstall sends a token the relay has never seen; the store still reports
+    # the same purchase behind it.
+    body = client.post("/v1/entitlement", headers={"X-Store-Receipt": "install-xyz"}).json()
+
+    assert body["answersUsed"] == 1
+
+
+def test_buying_again_adds_another_pool(client, monkeypatch):
+    store_purchase(monkeypatch)
+    monkeypatch.setattr(chat_module, "get_provider", lambda name: FakeProvider())
+    client.post("/v1/chat", json=build_envelope({"prompt": "hi", "model": PAID_MODEL}), headers=STORE_HEADERS)
+
+    store_purchase(monkeypatch, count=2)
+    body = client.post("/v1/entitlement", headers=STORE_HEADERS).json()
+
+    assert body["answersAllowed"] == settings.purchase_answer_allowance * 2
+    # What was already spent stays spent: another pool, not a reset.
+    assert body["answersUsed"] == 1

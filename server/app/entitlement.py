@@ -32,6 +32,9 @@ class Entitlement:
     unlocked: bool = False
     period: str = field(default_factory=current_period)
     answers_used: int = 0
+    # How many times the add-on was bought against this row. Each purchase buys
+    # its own pool, so this multiplies the allowance rather than replacing it.
+    purchases: int = 1
 
     def rolled_over(self) -> bool:
         return self.period != current_period()
@@ -81,11 +84,17 @@ class EntitlementStore:
             entry = self._entries.get(receipt_id)
             return self._fresh(entry, resets_monthly) if entry else None
 
-    def grant(self, receipt_id: str, unlocked: bool = True) -> Entitlement:
-        """Record what the store told us about a purchase."""
+    def grant(self, receipt_id: str, unlocked: bool = True, purchases: int = 1) -> Entitlement:
+        """Record what the store told us about a purchase.
+
+        Answers already spent are kept: this is called again whenever the store
+        reports another purchase, and that must add to the pool rather than wipe
+        the count of what has been used out of it.
+        """
         with _LOCK:
             entry = self._entries.get(receipt_id) or Entitlement(receipt_id=receipt_id)
             entry.unlocked = unlocked
+            entry.purchases = purchases
             self._entries[receipt_id] = entry
             self._save()
             return entry
