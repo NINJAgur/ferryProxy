@@ -498,7 +498,7 @@ customer id, so `receipts.py` never learns which was used.
 |---|---|---|---|
 | Play | `production` (AAB) | Play Billing | Google Play |
 | Sideload | `sideload` (APK) | Web checkout | Aptoide, GitHub Releases |
-| Browser | `expo export` | Web checkout | not deployed |
+| Browser | `expo export` | Web checkout | **live** — `ferryproxy.ninjagur-dev.workers.dev` |
 
 - [x] **15.1** `BillingProvider` interface; `playBilling` and `webBilling` behind it
 - [x] **15.2** `chooseBilling` pure and pinned by tests; defaults to the web checkout
@@ -548,8 +548,6 @@ decides whether the release survives contact with real users.
 - [ ] **17.2** **Render's free tier sleeps and has no disk.** A cold start makes the
       first question hang ~40s, and every deploy wipes purchases and usage counters.
       Fatal once real purchases exist
-- [ ] **17.3** **A custom domain.** uBlock blocks `*.onrender.com` outright; DNS
-      filters and corporate networks will too — the users Ferry is aimed at
 - [ ] **17.4** **The pricing is structurally wrong.** A one-time payment against a
       monthly renewing allowance means a heavy user costs money every month
       forever against a single payment. Either price for a lifetime, or make the
@@ -557,8 +555,9 @@ decides whether the release survives contact with real users.
 - [x] **17.5** Retry budget retuned: 40 attempts, 1s backoff cap. Re-measured at
       90% loss: **4/5**, median 37.6s, against **0/10** before. Send retries kept
       at 5 and separated — a chunk fetch is free, a send costs a real answer
-- [ ] **17.6** **Never run on a phone.** Every test so far has been a desktop
-      browser. 14.2 remains open
+- [x] **17.6 / 14.2** Run on a real phone, over mobile data, against the deployed
+      relay — via the web build at `ferryproxy.ninjagur-dev.workers.dev`. The APK
+      is still untested, but the transport, the relay and the free tier are not
 
 ---
 
