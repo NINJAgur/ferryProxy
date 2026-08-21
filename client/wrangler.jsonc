@@ -1,0 +1,13 @@
+{
+  // Ferry's web build is a static bundle, served by Cloudflare from ./dist.
+  // `expo export --platform web` writes that directory; nothing here runs server
+  // code — the relay is a separate service.
+  "name": "ferryproxy",
+  "compatibility_date": "2026-08-21",
+  "assets": {
+    "directory": "./dist",
+    // The app routes in the browser, so any path that is not a file must return
+    // index.html rather than a 404 — otherwise a refresh on any screen breaks.
+    "not_found_handling": "single-page-application"
+  }
+}
