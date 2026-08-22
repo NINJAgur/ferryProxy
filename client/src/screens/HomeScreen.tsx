@@ -382,9 +382,10 @@ export function HomeScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      // Both platforms: Android draws edge to edge now, so the window no longer
-      // resizes out from under the keyboard on its own.
-      behavior="padding"
+      // iOS only. Android is set to pan, so the system already lifts the whole
+      // window when the keyboard opens; adding padding on top of that overshoots
+      // and pushes the header off the screen.
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={12}
     >
       <View style={[styles.header, wide && styles.headerWide, offlineMode && styles.headerOffline]}>
@@ -583,7 +584,9 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral800,
     borderRadius: 22,
     color: colors.text,
-    fontSize: 15,
+    // 16 exactly: below it, mobile Safari zooms the page when the field takes
+    // focus, which then leaves the whole layout scaled up.
+    fontSize: 16,
     fontFamily: fonts.body,
     paddingHorizontal: 16,
     paddingTop: 12,

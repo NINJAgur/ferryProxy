@@ -115,10 +115,10 @@ const styles = StyleSheet.create({
   bubbleUser: { backgroundColor: colors.accent900 },
   // 1e: the un-delivered bubble is a dashed outline on the card ground, not a faded fill.
   bubbleFailed: { backgroundColor: colors.card, borderWidth: 1, borderStyle: "dashed", borderColor: colors.neutral700 },
-  text: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text, flexShrink: 1 },
+  text: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24, color: colors.text, flexShrink: 1 },
   textUser: { color: colors.accent200 },
   textFailed: { color: colors.text65 },
-  meta: { fontFamily: fonts.body, fontSize: 11, color: colors.text40, paddingHorizontal: 4 },
+  meta: { fontFamily: fonts.body, fontSize: 12, color: colors.text40, paddingHorizontal: 4 },
   costDetail: { color: colors.text40 },
   retryRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   retryLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.text50 },
