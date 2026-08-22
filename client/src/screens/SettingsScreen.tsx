@@ -15,6 +15,7 @@ import { CHAT_FILE, useThreadStore } from "../state/threadStore";
 import { useMetricsStore } from "../state/metricsStore";
 import { SettingsValues, useSettingsStore } from "../state/settingsStore";
 import { useWide, WIDE_COLUMN } from "../layout";
+import { VersionFooter } from "../components/VersionFooter";
 import { colors, fonts } from "../theme";
 
 const SETTINGS: { key: keyof SettingsValues; label: string; note: string }[] = [
@@ -235,10 +236,7 @@ export function SettingsScreen() {
 
         <View style={styles.spacer} />
       </ScrollView>
-      <View style={styles.footer}>
-        <FadingRule inset={40} />
-        <Text style={styles.footerText}>Ferry 0.4 · Slow but steady</Text>
-      </View>
+      <VersionFooter />
     </View>
   );
 }
@@ -318,6 +316,4 @@ const styles = StyleSheet.create({
   },
   dangerLabel: { fontFamily: fonts.body, fontSize: 12.5, color: colors.danger },
   spacer: { height: 28 },
-  footer: { paddingHorizontal: 22, paddingBottom: 24 },
-  footerText: { fontFamily: fonts.body, fontSize: 11.5, color: colors.text35, marginTop: 14 },
 });

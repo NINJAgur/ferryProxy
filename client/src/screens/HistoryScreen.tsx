@@ -8,6 +8,7 @@ import {
   groupByConversation,
   useMetricsStore,
 } from "../state/metricsStore";
+import { VersionFooter } from "../components/VersionFooter";
 import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 
@@ -23,7 +24,8 @@ export function HistoryScreen() {
   const chats = groupByConversation(messages);
 
   return (
-    <View style={[styles.container, wide && styles.column]}>
+    <View style={styles.page}>
+      <View style={[styles.container, wide && styles.column]}>
       <Text style={[styles.title, wide && styles.titleWide]}>What the line carried</Text>
       <Text style={[styles.subtitle, wide && styles.subtitleWide]}>
         Two different savings: how much of each answer you asked for, and how tightly it travelled.
@@ -103,6 +105,9 @@ export function HistoryScreen() {
         )}
         ListEmptyComponent={<Text style={styles.empty}>Nothing sent yet.</Text>}
       />
+      </View>
+
+      <VersionFooter />
     </View>
   );
 }
@@ -123,7 +128,8 @@ const styles = StyleSheet.create({
   chatTotalsWide: { fontSize: 13, lineHeight: 20 },
   subtitleWide: { fontSize: 15.5, lineHeight: 25, maxWidth: 640 },
   column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
-  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 22, paddingTop: 24 },
+  page: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, paddingHorizontal: 22, paddingTop: 24 },
   title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, letterSpacing: -0.36, marginBottom: 8 },
   subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.text55, marginBottom: 18, lineHeight: 20 },
   card: {

@@ -2,6 +2,7 @@ import React from "react";
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { PressState } from "../components/pressState";
+import { VersionFooter } from "../components/VersionFooter";
 import { Conversation, useThreadStore } from "../state/threadStore";
 import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
@@ -16,7 +17,8 @@ export function ChatsScreen({ onOpen }: ChatsScreenProps) {
   const remove = useThreadStore((s) => s.remove);
 
   return (
-    <View style={[styles.screen, wide && styles.column]}>
+    <View style={styles.page}>
+      <View style={[styles.screen, wide && styles.column]}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={[styles.title, wide && styles.titleWide]}>Your chats</Text>
@@ -33,6 +35,9 @@ export function ChatsScreen({ onOpen }: ChatsScreenProps) {
         renderItem={({ item }) => <Row conversation={item} onOpen={onOpen} onDelete={() => remove(item.id)} wide={wide} />}
         ListEmptyComponent={<Text style={styles.empty}>No chats yet.</Text>}
       />
+      </View>
+
+      <VersionFooter />
     </View>
   );
 }
@@ -91,7 +96,8 @@ const styles = StyleSheet.create({
   // The same frame screen A uses: full-window bars, content at a readable
   // width, sized for the window rather than for a phone held at arm's length.
   column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
-  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 22, paddingTop: 24 },
+  page: { flex: 1, backgroundColor: colors.bg },
+  screen: { flex: 1, paddingHorizontal: 22, paddingTop: 24 },
   titleWide: { fontSize: 34 },
   subtitleWide: { fontSize: 15.5, lineHeight: 25, marginTop: 10 },
   header: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 16 },
