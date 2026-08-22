@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import usage
+from app.entitlement import entitlement_store
 from app.main import app
 from app.protocol.checksum import sha256_hex
 from app.protocol.compression import encode_payload
@@ -17,6 +18,18 @@ def _isolated_usage_log(tmp_path, monkeypatch):
     fake answers in it would quietly skew that number.
     """
     monkeypatch.setattr(usage, "_PATH", tmp_path / "usage.jsonl")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_entitlements(tmp_path):
+    """Tests meter against their own store, not the relay's.
+
+    Sharing it meant a few hundred test answers counted against the real free
+    allowance — and once development traffic crossed it, every test that sent a
+    message started failing with a 429 that had nothing to do with the test.
+    """
+    entitlement_store._path = tmp_path / "entitlements.json"
+    entitlement_store._entries = {}
 
 
 @pytest.fixture(autouse=True)

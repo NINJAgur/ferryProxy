@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useMetricsStore } from "../state/metricsStore";
 import { ThreadMessage } from "../state/thread";
 import { Markdown } from "./Markdown";
 import { PressState } from "./pressState";
@@ -11,7 +12,18 @@ interface MessageBubbleProps {
   onRetry?: () => void;
 }
 
+function costFor(id: string): string | null {
+  const metrics = useMetricsStore((s) => s.messages.find((m) => m.id === id));
+  if (!metrics) return null;
+  return (
+    `${metrics.brief ? "short · " : ""}${metrics.rawResponseBytes} B answer · ` +
+    `${metrics.compressedBytesSent + metrics.compressedBytesReceived}B sent · ` +
+    `${metrics.totalChunks} piece${metrics.totalChunks === 1 ? "" : "s"} · ${metrics.totalLatencyMs}ms`
+  );
+}
+
 export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
+  const cost = costFor(message.id);
   const isUser = message.role === "user";
   const failed = message.status === "failed";
   const retrying = message.status === "sending" && !!message.failReason;
@@ -52,7 +64,13 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
           ) : null}
         </View>
       ) : (
-        <Text style={styles.meta}>{metaLabel(message)}</Text>
+        <Text style={styles.meta}>
+          {metaLabel(message)}
+          {/* What this one answer cost on the wire, next to when it landed. The
+              Data screen totals whole chats; the detail belongs where the
+              message is. */}
+          {cost ? <Text style={styles.costDetail}>{`  ·  ${cost}`}</Text> : null}
+        </Text>
       )}
 
       {failed ? (
@@ -86,18 +104,22 @@ function formatTime(ts: number): string {
 }
 
 const styles = StyleSheet.create({
-  row: { gap: 5, marginBottom: 14, maxWidth: "84%" },
+  // minWidth 0 matters: a run of characters with no spaces gives a flex item an
+  // automatic minimum size of its longest word, which overrides maxWidth and
+  // lets the bubble spill across the screen.
+  row: { gap: 5, marginBottom: 14, maxWidth: "84%", minWidth: 0, flexShrink: 1 },
   rowUser: { alignSelf: "flex-end", alignItems: "flex-end" },
   rowAssistant: { alignSelf: "flex-start", alignItems: "flex-start" },
-  bubble: { borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 15 },
+  bubble: { borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 15, minWidth: 0, flexShrink: 1 },
   bubbleAssistant: { backgroundColor: colors.surface },
   bubbleUser: { backgroundColor: colors.accent900 },
   // 1e: the un-delivered bubble is a dashed outline on the card ground, not a faded fill.
   bubbleFailed: { backgroundColor: colors.card, borderWidth: 1, borderStyle: "dashed", borderColor: colors.neutral700 },
-  text: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text },
+  text: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text, flexShrink: 1 },
   textUser: { color: colors.accent200 },
   textFailed: { color: colors.text65 },
   meta: { fontFamily: fonts.body, fontSize: 11, color: colors.text40, paddingHorizontal: 4 },
+  costDetail: { color: colors.text40 },
   retryRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   retryLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.text50 },
   retryPill: {

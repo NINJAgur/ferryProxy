@@ -111,3 +111,13 @@ def test_the_dictionary_has_not_drifted_from_the_client_copy():
     from app.protocol.dictionary import DICTIONARY_SHA256
 
     assert DICTIONARY_SHA256 == "0b0e2f8ba0dd106ea66296f4fb020f07f0e509b54dc8277e82c91b64fe994c15"
+
+
+def test_the_dictionary_algorithm_is_accepted_by_the_envelope():
+    """It was added to the encoder and not to the schema, so every envelope
+    using it was rejected with a 422 before anything decoded it."""
+    from app.protocol.schemas import ChatRequestEnvelope
+
+    envelope = ChatRequestEnvelope(r="abc123", a="zd", k="0" * 16, p="AAAA")
+
+    assert envelope.algorithm == "zd"

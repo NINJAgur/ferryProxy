@@ -2,12 +2,14 @@ import NetInfo from "@react-native-community/netinfo";
 import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TextInputKeyPressEventData,
   View,
 } from "react-native";
 
@@ -32,6 +34,7 @@ import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore
 import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
 import { useWide, WIDE_COLUMN } from "../layout";
+import { COMPOSER_ID } from "../webStyles";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
@@ -61,6 +64,9 @@ export function HomeScreen() {
   const notifyRef = useRef(false);
 
   const [draft, setDraft] = useState("");
+  // A web textarea does not grow on its own: without a height taken from its
+  // content it keeps its one row and scrolls, which is not what a composer does.
+  const [draftHeight, setDraftHeight] = useState(0);
   const [modelId, setModelId] = useState<string>("");
   const conversations = useThreadStore((t) => t.conversations);
   const activeId = useThreadStore((t) => t.activeId);
@@ -203,15 +209,26 @@ export function HomeScreen() {
       );
       patch(id, { status: "delivered", failReason: undefined });
       const pieces = result.metrics.totalChunks;
+      // The answer and its measurement share an id, so the chat can show what
+      // the message cost beside the message itself.
+      const answerId = generateId();
       appendMessage({
-        id: generateId(),
+        id: answerId,
         role: "assistant",
         content: result.response.content,
         timestamp: Date.now(),
         status: "delivered",
         note: pieces > 1 ? `Arrived in ${pieces} pieces` : undefined,
       });
-      addMetric({ id: generateId(), timestamp: Date.now(), prompt: content, ...result.metrics });
+      const thread = useThreadStore.getState();
+      addMetric({
+        id: answerId,
+        timestamp: Date.now(),
+        prompt: content,
+        conversationId: thread.activeId ?? undefined,
+        conversationTitle: thread.conversations.find((c) => c.id === thread.activeId)?.title,
+        ...result.metrics,
+      });
       if (notifyRef.current) void sendLandedNotification();
     } catch (err) {
       if (err instanceof HttpError) {
@@ -237,6 +254,8 @@ export function HomeScreen() {
     const content = draft.trim();
     if (!content || pending) return;
     setDraft("");
+    setDraftHeight(0);
+    fitComposer();
     const id = generateId();
 
     // A conversation is created by the first thing said in it, not by opening the
@@ -253,6 +272,41 @@ export function HomeScreen() {
     }
     appendMessage({ id, role: "user", content, timestamp: Date.now(), status: "sending" });
     await attemptSend(id, content, modelId);
+  }
+
+  /**
+   * Enter sends, shift+Enter makes a newline — the convention every chat on the
+   * web follows. Not on a phone: there the return key is the only newline key
+   * there is, so it stays one and the Send button sends.
+   */
+  function handleComposerKey(event: NativeSyntheticEvent<TextInputKeyPressEventData>) {
+    const native = event.nativeEvent as unknown as { key: string; shiftKey?: boolean };
+    if (native.key !== "Enter" || native.shiftKey) return;
+    (event as unknown as { preventDefault?: () => void }).preventDefault?.();
+    void handleSend();
+  }
+
+  /**
+   * Size the composer to its text, on web.
+   *
+   * Going through measured state does not survive the field scrolling: once it
+   * has a height of its own it reports that height rather than the one its text
+   * needs, so deleting a line never gave the space back — and dropping the
+   * height first made it collapse, because a scrolling field measures what is
+   * visible. Setting it to auto and reading the real scroll height is exact in
+   * both directions, which is what every auto-growing textarea on the web does.
+   */
+  function fitComposer() {
+    if (Platform.OS !== "web") return;
+    const node = inputRef.current as unknown as HTMLTextAreaElement | null;
+    if (!node || !node.style) return;
+    node.style.height = "auto";
+    const floor = wide ? 54 : 44;
+    // Two pixels of slack. Set to exactly the scroll height, a sub-pixel
+    // rounding difference is enough for the browser to decide it overflows and
+    // draw a scrollbar on the very first line.
+    const fitted = Math.max(node.scrollHeight + 2, floor);
+    node.style.height = `${Math.min(fitted, COMPOSER_MAX_HEIGHT)}px`;
   }
 
   async function handleNotifyMe() {
@@ -417,16 +471,38 @@ export function HomeScreen() {
       <View style={[styles.composer, wide && styles.column]}>
         <TextInput
           ref={inputRef}
-          style={[styles.input, wide && styles.inputWide]}
+          nativeID={COMPOSER_ID}
+          style={[
+            styles.input,
+            wide && styles.inputWide,
+            // Only with something in it. An empty multiline field reports a
+            // content size of its own and would open several lines tall.
+            Platform.OS !== "web" && draft.length > 0 && draftHeight > 0
+              // Two pixels of slack: set to exactly the content height, a
+              // sub-pixel rounding difference is enough for the browser to
+              // decide it overflows and draw a scrollbar on the first line.
+              ? {
+                  height: Math.min(
+                    Math.max(Math.ceil(draftHeight) + 2, wide ? 54 : 44),
+                    COMPOSER_MAX_HEIGHT
+                  ),
+                }
+              : null,
+          ]}
           multiline
+          onContentSizeChange={(e) => setDraftHeight(e.nativeEvent.contentSize.height)}
           // One row to start with. Without it a multiline field opens at the
           // browser's own idea of a textarea and fills the bottom of the screen.
           numberOfLines={1}
           placeholder={offlineMode ? "Write the next one" : "Ask something"}
           placeholderTextColor={colors.text40}
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={(next) => {
+            setDraft(next);
+            fitComposer();
+          }}
           onSubmitEditing={handleSend}
+          onKeyPress={Platform.OS === "web" ? handleComposerKey : undefined}
           editable={!busy}
           returnKeyType="send"
         />
@@ -457,6 +533,10 @@ const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eig
 function countWord(n: number): string {
   return n <= 10 ? WORDS[n] : String(n);
 }
+
+/** Six or so lines. Past that the composer would be eating the conversation it
+ *  belongs to, so it scrolls — the same place Gemini stops growing. */
+const COMPOSER_MAX_HEIGHT = 160;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
@@ -497,7 +577,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 44,
-    maxHeight: 132,
+    maxHeight: COMPOSER_MAX_HEIGHT,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.neutral800,

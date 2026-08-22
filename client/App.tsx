@@ -16,6 +16,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { useThreadStore } from "./src/state/threadStore";
 import { useWide } from "./src/layout";
+import { installWebStyles } from "./src/webStyles";
 import { colors, fonts } from "./src/theme";
 
 type Screen = "chat" | "chats" | "data" | "settings";
@@ -26,6 +27,8 @@ const TABS: { key: Screen; label: string }[] = [
   { key: "data", label: "Data" },
   { key: "settings", label: "Settings" },
 ];
+
+installWebStyles();
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("chat");

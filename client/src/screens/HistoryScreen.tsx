@@ -5,6 +5,7 @@ import {
   averageAnswerBytes,
   computeBrevityComparison,
   computeSessionTotals,
+  groupByConversation,
   useMetricsStore,
 } from "../state/metricsStore";
 import { useWide, WIDE_COLUMN } from "../layout";
@@ -18,6 +19,8 @@ export function HistoryScreen() {
   const averageAnswer = averageAnswerBytes(messages);
   const allBrief = messages.length > 0 && messages.every((m) => m.brief);
   const wireSaved = totals.rawBytes > 0 ? (1 - totals.compressionRatio) * 100 : 0;
+  // A conversation is the unit anyone thinks in, not a single message.
+  const chats = groupByConversation(messages);
 
   return (
     <View style={[styles.container, wide && styles.column]}>
@@ -80,18 +83,22 @@ export function HistoryScreen() {
       </View>
 
       <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={[styles.row, wide && styles.rowWide]}>
-            <Text style={[styles.rowPrompt, wide && styles.rowPromptWide]} numberOfLines={1}>
-              {item.prompt}
+        data={chats}
+        keyExtractor={(chat) => chat.id}
+        renderItem={({ item: chat }) => (
+          <View style={styles.chat}>
+            <Text style={[styles.chatTitle, wide && styles.chatTitleWide]} numberOfLines={1}>
+              {chat.title}
             </Text>
-            <Text style={[styles.rowDetail, wide && styles.rowDetailWide]}>
-              {item.brief ? "short · " : ""}
-              {item.rawResponseBytes} B answer · {item.compressedBytesSent + item.compressedBytesReceived}B
-              sent · {item.totalChunks} piece{item.totalChunks === 1 ? "" : "s"} · {item.totalLatencyMs}ms
+            <Text style={[styles.chatTotals, wide && styles.chatTotalsWide]}>
+              {chat.messages.length} answer{chat.messages.length === 1 ? "" : "s"} ·{" "}
+              {chat.answerBytes.toLocaleString()} B of answers ·{" "}
+              {chat.totals.compressedBytes.toLocaleString()} B on the wire against{" "}
+              {chat.totals.rawBytes.toLocaleString()} B plain · {chat.totals.totalChunks} piece
+              {chat.totals.totalChunks === 1 ? "" : "s"} · {chat.totals.chunkRetries} retr
+              {chat.totals.chunkRetries === 1 ? "y" : "ies"}
             </Text>
+
           </View>
         )}
         ListEmptyComponent={<Text style={styles.empty}>Nothing sent yet.</Text>}
@@ -109,9 +116,11 @@ const styles = StyleSheet.create({
   bigWide: { fontSize: 30 },
   bigMutedWide: { fontSize: 24 },
   cardNoteWide: { fontSize: 14, lineHeight: 22, marginTop: 8 },
-  rowWide: { paddingVertical: 16 },
-  rowPromptWide: { fontSize: 16.5 },
-  rowDetailWide: { fontSize: 13, marginTop: 5 },
+  chat: { marginTop: 22 },
+  chatTitle: { fontFamily: fonts.heading, fontSize: 15, color: colors.text },
+  chatTitleWide: { fontSize: 18 },
+  chatTotals: { fontFamily: fonts.body, fontSize: 11.5, color: colors.accent400, marginTop: 3, lineHeight: 17 },
+  chatTotalsWide: { fontSize: 13, lineHeight: 20 },
   subtitleWide: { fontSize: 15.5, lineHeight: 25, maxWidth: 640 },
   column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
   container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 22, paddingTop: 24 },
@@ -130,8 +139,5 @@ const styles = StyleSheet.create({
   bigNegative: { color: colors.text55 },
   bigMuted: { fontFamily: fonts.heading, fontSize: 18, color: colors.text45 },
   cardNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text55, marginTop: 6, lineHeight: 18 },
-  row: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.divider08 },
-  rowPrompt: { fontFamily: fonts.body, fontSize: 14, color: colors.text },
-  rowDetail: { fontFamily: fonts.body, fontSize: 11, color: colors.text40, marginTop: 3 },
   empty: { fontFamily: fonts.body, fontSize: 13, color: colors.text40, textAlign: "center", marginTop: 24 },
 });

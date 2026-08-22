@@ -4,7 +4,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 Provider = Literal["anthropic", "openai", "gemini"]
-Algorithm = Literal["gzip", "none"]
+# "zd" is raw deflate against the shared dictionary. Left out of this list
+# once already, which rejected every envelope that used it with a 422
+# before anything got as far as decoding it.
+Algorithm = Literal["gzip", "none", "zd"]
 Tier = Literal["free", "paid"]
 
 

@@ -8,6 +8,10 @@ export interface MessageMetrics extends SendPromptMetrics {
   id: string;
   timestamp: number;
   prompt: string;
+  /** Which chat this went out in. Absent on anything measured before the Data
+   *  screen grouped by chat, which is why the screen has a bucket for those. */
+  conversationId?: string;
+  conversationTitle?: string;
 }
 
 interface MetricsState {
@@ -89,4 +93,41 @@ export function computeSessionTotals(messages: MessageMetrics[]): SessionTotals 
     ...totals,
     compressionRatio: totals.rawBytes > 0 ? totals.compressedBytes / totals.rawBytes : 0,
   };
+}
+
+export interface ConversationMetrics {
+  id: string;
+  title: string;
+  messages: MessageMetrics[];
+  totals: SessionTotals;
+  answerBytes: number;
+  latestAt: number;
+}
+
+/**
+ * The Data screen answers "what did this cost me", and a message on its own is
+ * not the unit anyone thinks in — a conversation is. Each chat carries its own
+ * total, and the messages sit under the one they belong to.
+ */
+export function groupByConversation(messages: MessageMetrics[]): ConversationMetrics[] {
+  const groups = new Map<string, MessageMetrics[]>();
+  for (const message of messages) {
+    const key = message.conversationId ?? "";
+    const existing = groups.get(key);
+    if (existing) existing.push(message);
+    else groups.set(key, [message]);
+  }
+
+  return [...groups.entries()]
+    .map(([id, group]) => ({
+      id: id || "earlier",
+      title: id
+        ? group.find((m) => m.conversationTitle)?.conversationTitle ?? group[group.length - 1].prompt
+        : "Earlier chats",
+      messages: group,
+      totals: computeSessionTotals(group),
+      answerBytes: group.reduce((a, m) => a + m.rawResponseBytes, 0),
+      latestAt: Math.max(...group.map((m) => m.timestamp)),
+    }))
+    .sort((a, b) => b.latestAt - a.latestAt);
 }
