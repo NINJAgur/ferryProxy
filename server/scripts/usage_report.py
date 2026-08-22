@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings  # noqa: E402
-from app.pricing import rate_for  # noqa: E402
+from app.pricing import cost_usd, rate_for  # noqa: E402
 
 
 def load(path: Path) -> list:
@@ -42,6 +42,13 @@ def main() -> None:
         print(f"No answers recorded yet ({path}).")
         print("Ask Ferry a few questions, then run this again.")
         raise SystemExit(0)
+
+    # Cost is worked out here rather than read from the row. A rate that arrives
+    # later — or is corrected — should apply to everything already recorded, and
+    # answers logged before their model had a rate would otherwise stay
+    # permanently uncosted and quietly drop out of every total.
+    for r in rows:
+        r["cost_usd"] = cost_usd(r["model"], r.get("input_tokens"), r.get("output_tokens"))
 
     by_model = defaultdict(list)
     for r in rows:
@@ -69,13 +76,22 @@ def main() -> None:
     paid = [e["cost_usd"] for e in rows if e.get("paid") and e["cost_usd"] is not None]
     if paid:
         per = statistics.mean(paid)
+        pool = settings.purchase_answer_allowance
         print(f"\nPaid answers: {len(paid)}, averaging ${per:.5f} each.")
-        print(f"  A full monthly allowance of {settings.monthly_answer_allowance} costs "
-              f"${per * settings.monthly_answer_allowance:.2f}.")
+        print(f"  The {pool} answers one purchase buys cost ${per * pool:.2f} to serve.")
         print(f"  Worst single answer seen: ${max(paid):.5f}.")
-        # The whole point: a one-time price against a recurring cost.
-        print(f"\n  At that rate a buyer who uses the allowance every month costs "
-              f"${per * settings.monthly_answer_allowance * 12:.2f} a year.")
+        # The pool is finite, so this is the whole exposure per sale, not per year.
+        print(f"  Against {settings.unlock_price_display} a sale, that is what a customer "
+              f"costs however long they stay.")
+
+    free = [e["cost_usd"] for e in rows if not e.get("paid") and e["cost_usd"] is not None]
+    if free:
+        per_free = statistics.mean(free)
+        monthly = per_free * settings.free_answer_allowance
+        # Nobody pays for these, so this is the bill for having users at all.
+        print(f"\nFree answers: {len(free)}, averaging ${per_free:.5f} each.")
+        print(f"  A device's {settings.free_answer_allowance} free answers a month: ${monthly:.2f}.")
+        print(f"  A hundred such devices: ${monthly * 100:.2f} a month.")
 
     brief = [e["output_tokens"] for e in rows if e.get("brief") and e["output_tokens"]]
     full = [e["output_tokens"] for e in rows if not e.get("brief") and e["output_tokens"]]

@@ -33,7 +33,14 @@ def _load_overrides() -> Dict[str, Tuple[float, float]]:
         return {}
     try:
         raw = json.loads(_OVERRIDES_PATH.read_text(encoding="utf-8"))
-        return {k: (float(v["input"]), float(v["output"])) for k, v in raw.items()}
+        # Keys starting with an underscore are notes. Rates carry conditions —
+        # promotional periods, tiers above a context length — and a file of bare
+        # numbers gives whoever updates it no way to know that.
+        return {
+            k: (float(v["input"]), float(v["output"]))
+            for k, v in raw.items()
+            if not k.startswith("_")
+        }
     except (OSError, ValueError, KeyError, TypeError):
         logger.exception("model_prices.json is unreadable; using built-in rates")
         return {}

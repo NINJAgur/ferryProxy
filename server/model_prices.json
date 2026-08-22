@@ -1,0 +1,20 @@
+{
+  "_note": "US dollars per million tokens, as (input, output). Overrides the built-in rates in app/pricing.py without a code change. Checked 2026-08-22.",
+
+  "_gemini": "Flash carries promotional pricing until 2026-12-31, after which it doubles to 1.50/7.50. The -latest ids follow whatever Google calls newest, so their real rate can move without this file changing.",
+  "gemini-3.6-flash": { "input": 0.75, "output": 3.75 },
+  "gemini-flash-latest": { "input": 0.75, "output": 3.75 },
+  "gemini-pro-latest": { "input": 2.00, "output": 12.00 },
+
+  "_anthropic": "Sonnet 5 is on introductory pricing (2.00/10.00) until 2026-08-31, then returns to the rate below.",
+  "claude-haiku-4-5-20251001": { "input": 1.00, "output": 5.00 },
+  "claude-sonnet-5": { "input": 3.00, "output": 15.00 },
+  "claude-opus-5": { "input": 5.00, "output": 25.00 },
+
+  "_openai": "Standard tier, not batch or cached.",
+  "gpt-5.4-mini": { "input": 0.75, "output": 4.50 },
+  "gpt-4o": { "input": 2.50, "output": 10.00 },
+  "gpt-5.5": { "input": 5.00, "output": 30.00 },
+
+  "_tiers": "Gemini Pro charges more above 200k tokens of context (4.00/18.00). Not modelled here: the client caps history at 6000 characters, so a request cannot get near it."
+}
