@@ -7,7 +7,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { PressState } from "./src/components/pressState";
@@ -43,7 +42,6 @@ export default function App() {
     // draws under the status bar and the gesture bar — so the tabs and the
     // composer ended up beneath the system's own controls.
     <SafeAreaProvider>
-      <KeyboardProvider>
       <SafeAreaView style={styles.container}>
         <View style={styles.frame}>
           <View style={[styles.nav, wide && styles.navWide]}>
@@ -81,7 +79,6 @@ export default function App() {
         </View>
         <StatusBar style="light" />
       </SafeAreaView>
-      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

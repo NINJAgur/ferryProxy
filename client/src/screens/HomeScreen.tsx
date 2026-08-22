@@ -1,6 +1,7 @@
 import NetInfo from "@react-native-community/netinfo";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -30,8 +31,6 @@ import { useThreadStore } from "../state/threadStore";
 import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore";
 import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-
 import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
@@ -327,7 +326,13 @@ export function HomeScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior="padding" keyboardVerticalOffset={12}>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      // Both platforms: Android draws edge to edge now, so the window no longer
+      // resizes out from under the keyboard on its own.
+      behavior="padding"
+      keyboardVerticalOffset={12}
+    >
       <View style={[styles.header, wide && styles.headerWide, offlineMode && styles.headerOffline]}>
         <View style={[styles.headerRow, wide && styles.column]}>
           <View style={styles.headerText}>
