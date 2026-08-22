@@ -8,10 +8,9 @@ import { colors, fonts } from "../theme";
 
 interface ChatsScreenProps {
   onOpen: (id: string) => void;
-  onNew: () => void;
 }
 
-export function ChatsScreen({ onOpen, onNew }: ChatsScreenProps) {
+export function ChatsScreen({ onOpen }: ChatsScreenProps) {
   const wide = useWide();
   const conversations = useThreadStore((s) => s.conversations);
   const remove = useThreadStore((s) => s.remove);
@@ -25,12 +24,6 @@ export function ChatsScreen({ onOpen, onNew }: ChatsScreenProps) {
             Kept on this {Platform.OS === "web" ? "browser" : "phone"} only — never uploaded.
           </Text>
         </View>
-        <Pressable
-          onPress={onNew}
-          style={({ hovered }: PressState) => [styles.newBtn, hovered && { backgroundColor: colors.accentHover }]}
-        >
-          <Text style={[styles.newLabel, wide && styles.newLabelWide]}>New</Text>
-        </Pressable>
       </View>
 
       <FlatList
@@ -105,20 +98,11 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, letterSpacing: -0.36 },
   subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.text55, marginTop: 6, lineHeight: 19 },
-  newBtn: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  newLabel: { fontFamily: fonts.heading, fontSize: 14, color: colors.accent },
   list: { paddingBottom: 24 },
   rowWide: { paddingVertical: 20 },
   rowTitleWide: { fontSize: 17.5 },
   rowMetaWide: { fontSize: 13, marginTop: 5 },
   deleteLabelWide: { fontSize: 14 },
-  newLabelWide: { fontSize: 16 },
   row: {
     flexDirection: "row",
     alignItems: "center",

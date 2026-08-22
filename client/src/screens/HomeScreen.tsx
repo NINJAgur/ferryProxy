@@ -1,7 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +18,7 @@ import { QueuedList } from "../components/QueuedList";
 import { requestLandingNotification, sendLandedNotification } from "../notify";
 import { enqueue, loadQueue, QueuedMessage } from "../queue/offlineQueue";
 import { startQueueProcessor } from "../queue/queueProcessor";
+import { historyFor } from "../state/history";
 import { useMetricsStore } from "../state/metricsStore";
 import {
   LONG_ANSWER_WARNING_MS,
@@ -30,6 +30,8 @@ import { useThreadStore } from "../state/threadStore";
 import { pickDefaultModel, useEntitlementStore } from "../state/entitlementStore";
 import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+
 import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
@@ -111,10 +113,6 @@ export function HomeScreen() {
   const patch = patchMessage;
 
   useEffect(() => {
-    if (!activeId) startNew(generateId());
-  }, [activeId, startNew]);
-
-  useEffect(() => {
     const next = pickDefaultModel(entitlement.models, modelId);
     if (next && next !== modelId) setModelId(next);
   }, [modelId, entitlement.models]);
@@ -189,9 +187,14 @@ export function HomeScreen() {
     setPendingState({ status: "idle" });
     patch(id, { status: "sending" });
     try {
+      const store = useThreadStore.getState();
+      const open = store.conversations.find((c) => c.id === store.activeId);
       const result = await sendPrompt(
         {
           prompt: content,
+          // Everything said before this question. Without it the relay forwards a
+          // lone prompt and the model answers as though nothing came before.
+          history: historyFor(open?.messages ?? []),
           model: used,
           sessionId,
           brief: settings.answerShortFirst,
@@ -237,8 +240,15 @@ export function HomeScreen() {
     setDraft("");
     const id = generateId();
 
+    // A conversation is created by the first thing said in it, not by opening the
+    // tab. Read through the store rather than the hook: this has to be true before
+    // the message is appended, and React has not re-rendered yet.
+    if (!useThreadStore.getState().activeId) startNew(generateId());
+
     if (!online) {
-      await enqueue({ id, prompt: content, model: modelId });
+      const waiting = useThreadStore.getState();
+      const thread = waiting.conversations.find((c) => c.id === waiting.activeId);
+      await enqueue({ id, prompt: content, model: modelId, history: historyFor(thread?.messages ?? []) });
       refreshQueue();
       return;
     }
@@ -317,36 +327,45 @@ export function HomeScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={12}
-    >
+    <KeyboardAvoidingView style={styles.screen} behavior="padding" keyboardVerticalOffset={12}>
       <View style={[styles.header, wide && styles.headerWide, offlineMode && styles.headerOffline]}>
-        <View style={wide ? styles.column : undefined}>
-        {offlineMode ? (
-          <>
-            <View style={styles.statusRow}>
-              <View style={[styles.dot, { backgroundColor: colors.neutral600 }]} />
-              <Text style={[styles.statusText, wide && styles.statusTextWide]}>
-                {online ? "The line keeps dropping" : "No connection right now"}
-              </Text>
-            </View>
-            <Text style={[styles.headerTitle, wide && styles.headerTitleWide]}>
-              {queued.length === 0
-                ? "Nothing waiting"
-                : `${countWord(queued.length)} question${queued.length === 1 ? "" : "s"} waiting`}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.headerTitle, wide && styles.headerTitleWide]}>Ferry</Text>
-            <View style={styles.statusRow}>
-              <View style={[styles.dot, { backgroundColor: colors.accent }]} />
-              <Text style={[styles.statusText, wide && styles.statusTextWide]}>Slow but steady</Text>
-            </View>
-          </>
-        )}
+        <View style={[styles.headerRow, wide && styles.column]}>
+          <View style={styles.headerText}>
+            {offlineMode ? (
+              <>
+                <View style={styles.statusRow}>
+                  <View style={[styles.dot, { backgroundColor: colors.neutral600 }]} />
+                  <Text style={[styles.statusText, wide && styles.statusTextWide]}>
+                    {online ? "The line keeps dropping" : "No connection right now"}
+                  </Text>
+                </View>
+                <Text style={[styles.headerTitle, wide && styles.headerTitleWide]}>
+                  {queued.length === 0
+                    ? "Nothing waiting"
+                    : `${countWord(queued.length)} question${queued.length === 1 ? "" : "s"} waiting`}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.headerTitle, wide && styles.headerTitleWide]}>Ferry</Text>
+                <View style={styles.statusRow}>
+                  <View style={[styles.dot, { backgroundColor: colors.accent }]} />
+                  <Text style={[styles.statusText, wide && styles.statusTextWide]}>Slow but steady</Text>
+                </View>
+              </>
+            )}
+          </View>
+          {/* Starting a fresh chat belongs beside the chat, not in the list of
+              old ones. */}
+          <Pressable
+            onPress={() => startNew(generateId())}
+            style={({ hovered }: PressState) => [
+              styles.newBtn,
+              hovered && { backgroundColor: colors.accent900 },
+            ]}
+          >
+            <Text style={styles.newLabel}>New chat</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -394,6 +413,10 @@ export function HomeScreen() {
         <TextInput
           ref={inputRef}
           style={[styles.input, wide && styles.inputWide]}
+          multiline
+          // One row to start with. Without it a multiline field opens at the
+          // browser's own idea of a textarea and fills the bottom of the screen.
+          numberOfLines={1}
           placeholder={offlineMode ? "Write the next one" : "Ask something"}
           placeholderTextColor={colors.text40}
           value={draft}
@@ -434,6 +457,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.divider09 },
   headerOffline: { backgroundColor: colors.surface },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  headerText: { flex: 1 },
+  newBtn: { borderWidth: 1, borderColor: colors.accent, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 13 },
+  newLabel: { fontFamily: fonts.heading, fontSize: 13, color: colors.accent },
   headerTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, lineHeight: 20.4 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },
@@ -445,7 +472,7 @@ const styles = StyleSheet.create({
   headerWide: { paddingTop: 26, paddingBottom: 20 },
   headerTitleWide: { fontSize: 24, lineHeight: 29 },
   statusTextWide: { fontSize: 14 },
-  inputWide: { height: 54, borderRadius: 27, fontSize: 16, paddingHorizontal: 20 },
+  inputWide: { minHeight: 54, borderRadius: 27, fontSize: 16, paddingHorizontal: 20 },
   sendBtnWide: { height: 54, borderRadius: 27, paddingHorizontal: 28 },
   sendLabelWide: { fontSize: 16 },
   // Bars and dividers stay full width; what you read sits in a column.
@@ -464,7 +491,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 44,
+    minHeight: 44,
+    maxHeight: 132,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.neutral800,
@@ -473,6 +501,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.body,
     paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   sendBtn: {
     height: 44,

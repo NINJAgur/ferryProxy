@@ -7,6 +7,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { PressState } from "./src/components/pressState";
@@ -17,7 +18,6 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { useThreadStore } from "./src/state/threadStore";
 import { useWide } from "./src/layout";
 import { colors, fonts } from "./src/theme";
-import { generateId } from "./src/transport/ids";
 
 type Screen = "chat" | "chats" | "data" | "settings";
 
@@ -33,7 +33,6 @@ export default function App() {
   const wide = useWide();
   const [loaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
   const openChat = useThreadStore((s) => s.open);
-  const startNew = useThreadStore((s) => s.startNew);
 
   if (!loaded) {
     return <View style={styles.container} />;
@@ -44,6 +43,7 @@ export default function App() {
     // draws under the status bar and the gesture bar — so the tabs and the
     // composer ended up beneath the system's own controls.
     <SafeAreaProvider>
+      <KeyboardProvider>
       <SafeAreaView style={styles.container}>
         <View style={styles.frame}>
           <View style={[styles.nav, wide && styles.navWide]}>
@@ -72,10 +72,6 @@ export default function App() {
                 openChat(id);
                 setScreen("chat");
               }}
-              onNew={() => {
-                startNew(generateId());
-                setScreen("chat");
-              }}
             />
           ) : screen === "data" ? (
             <HistoryScreen />
@@ -85,6 +81,7 @@ export default function App() {
         </View>
         <StatusBar style="light" />
       </SafeAreaView>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
