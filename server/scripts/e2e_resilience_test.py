@@ -45,8 +45,12 @@ logger = logging.getLogger("resilience")
 SEND_TIMEOUT_S = 90.0
 CHUNK_FETCH_TIMEOUT_S = 8.0
 CHUNK_RETRY_BASE_DELAY_S = 0.5
-CHUNK_RETRY_MAX_DELAY_S = 8.0
-CHUNK_RETRY_MAX_ATTEMPTS = 5
+# Mirrors client/src/transport/reassembly.ts. These drifted once already: the
+# client was retuned to 40 attempts and a 1s cap while this kept measuring 5 and
+# 8s, so the harness was proving a transport nobody ships.
+CHUNK_RETRY_MAX_DELAY_S = 1.0
+CHUNK_RETRY_MAX_ATTEMPTS = 40
+SEND_RETRY_MAX_ATTEMPTS = 5
 CHUNK_RETRY_JITTER = 0.2
 CHUNK_FETCH_CONCURRENCY = 3
 REASSEMBLY_BUDGET_S = 180.0

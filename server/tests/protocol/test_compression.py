@@ -71,3 +71,43 @@ def test_encode_decode_round_trip_both_algorithms() -> None:
 def test_decode_rejects_unknown_algorithm() -> None:
     with pytest.raises(ValueError):
         decode_payload("brotli", "abc")
+
+
+def test_the_dictionary_beats_sending_plainly_where_gzip_cannot():
+    """The whole point: gzip's header costs more than it saves on a short
+    payload, so below a few hundred bytes it made messages bigger."""
+    from app.protocol.compression import ALGORITHM_DICT, encode_payload
+
+    small = b'{"prompt":"hi","model":"claude-opus-5","history":[],"brief":true}'
+
+    algorithm, text = encode_payload(small, dictionary=True)
+
+    assert algorithm == ALGORITHM_DICT
+    assert len(text) < len(small)
+
+
+def test_the_dictionary_is_not_used_unless_the_caller_used_it():
+    """An app that has never heard of it would receive an unreadable answer."""
+    from app.protocol.compression import ALGORITHM_DICT, encode_payload
+
+    small = b'{"prompt":"hi","model":"claude-opus-5","history":[],"brief":true}'
+
+    algorithm, _ = encode_payload(small)
+
+    assert algorithm != ALGORITHM_DICT
+
+
+def test_a_dictionary_payload_round_trips():
+    from app.protocol.compression import compress_with_dictionary, decompress_with_dictionary
+
+    original = "a conversation, several turns of it, ".encode("utf-8") * 20
+
+    assert decompress_with_dictionary(compress_with_dictionary(original)) == original
+
+
+def test_the_dictionary_has_not_drifted_from_the_client_copy():
+    """client/src/transport/dictionary.ts pins the same checksum. A dictionary
+    that differs by one byte decompresses to rubbish rather than failing."""
+    from app.protocol.dictionary import DICTIONARY_SHA256
+
+    assert DICTIONARY_SHA256 == "0b0e2f8ba0dd106ea66296f4fb020f07f0e509b54dc8277e82c91b64fe994c15"

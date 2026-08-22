@@ -19,7 +19,7 @@ from app.llm.base import LLMConfigError, LLMProviderError
 from app.llm.registry import get_provider
 from app.protocol.checksum import sha256_hex
 from app.protocol.chunker import split_into_chunks
-from app.protocol.compression import decode_payload, encode_payload
+from app.protocol.compression import ALGORITHM_DICT, decode_payload, encode_payload
 from app.usage import record as record_usage
 from app.protocol.schemas import (
     ChatRequestEnvelope,
@@ -147,7 +147,12 @@ async def chat(
     )
     response_bytes = response_plaintext.model_dump_json(by_alias=True).encode("utf-8")
     response_checksum = sha256_hex(response_bytes)
-    algorithm, encoded = encode_payload(response_bytes)
+    # Answer in the dictionary encoding only if the question arrived in it. An
+    # older app would receive something it cannot read, which is worse than a
+    # larger answer it can.
+    algorithm, encoded = encode_payload(
+        response_bytes, dictionary=envelope.algorithm == ALGORITHM_DICT
+    )
 
     chunks = split_into_chunks(encoded, settings.chunk_size_bytes)
     total_chunks = len(chunks)

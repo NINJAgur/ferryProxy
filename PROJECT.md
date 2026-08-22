@@ -387,7 +387,12 @@ replies rather than quoting a number from a single sample.
 - [x] **3.1** `simulate_loss.py` — configurable loss + 2G latency
 - [x] **3.2** CORS preflight + error-header fixes
 - [x] **3.3** `e2e_resilience_test.py` + retry-helper unit tests
-- [ ] **3.4** **Run it at `LOSS_PROBABILITY=0.9`, 10× plus a 0% control** ← never executed
+- [x] **3.4** **Run at `LOSS_PROBABILITY=0.9`, 10x plus a 0% control.** Sends 3/3
+      (median 34.7s, 14 requests); reassembly **9/10** (median 24.1s, worst 55.2s,
+      22 requests). Control: 3/3 and 10/10, median 12.1s and 0.0s, 1 and 3 requests.
+      The harness had kept its own copy of the retry budget and never followed the
+      client's retune — at its old 5 attempts the same run scored 1/3 and **0/10**,
+      so the retune was the difference between working and not
 
 ### Phase 4 — App transport ✅
 - [x] **4.1** Reassembly state machine (pure reducer) + orchestrator
@@ -494,7 +499,15 @@ blockers, not deployment tasks.
 
 ### Phase 14 — Outstanding engineering 🔧
 - [x] **14.1** The 90% packet-loss proof exists and runs — see 17.5 for the result
-- [ ] **14.3** Shared-dictionary compression to beat the ~700 B crossover
+- [x] **14.3** **Shared-dictionary compression.** Deflate has nothing to point at
+      in a short message and its header costs more than it saves, which is what put
+      a crossover at ~700 B. Both ends now hold 401 bytes of what every payload
+      repeats — envelope keys, model ids, the commonest English words — and raw
+      deflate matches into it before the message starts. Measured: 91 B -> 56,
+      119 -> 88, 514 -> 140 (gzip managed 232), 1336 -> 180 (gzip 268). There is no
+      crossover left; it wins at ninety bytes. The relay answers in it only if the
+      question arrived in it, so an older app is never sent something it cannot
+      read, and a pinned checksum on each side stops the two copies drifting
 - [x] **14.4** Orphans deleted: `TunnelButton.tsx`, `ProviderSelector.tsx`,
       `server/app/db.py`, `server/app/models.py`
 
@@ -536,7 +549,9 @@ customer id, so `receipts.py` never learns which was used.
 - [x] **16.8** Store listing: descriptions, icon, feature graphic, screenshots,
       content rating, data safety, sign-in details, privacy and deletion URLs
 - [ ] **16.2** Google Payments merchant profile — no purchase works until approved
-- [ ] **16.4** Managed (non-consumable) product, priced
+- [ ] **16.4** One-time product at $20, created as a **consumable** — a pool that
+      can run out has to be re-buyable, and a non-consumable can be bought once per
+      account for good. The product ID can never be changed afterwards
 - [ ] **16.5** RevenueCat: add a **Play** app, service account JSON, attach to `pro`
 - [ ] **16.6** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` (`goog_…`) in `eas.json`
 - [ ] **16.7** Twelve testers, fourteen continuous days on a closed track
@@ -560,8 +575,8 @@ decides whether the release survives contact with real users.
       number of purchases — so buying again adds a pool instead of being swallowed.
       This also fixed a purchase never unlocking at all: nothing created the row for
       a verified store purchase, only the dev endpoint did
-- [ ] **17.8** The Play in-app product must be created as a **consumable**, or the
-      add-on can only ever be bought once per account and the pool cannot be topped up
+- [x] **17.8** Folded into 16.4, which said the opposite of what the pricing change
+      now needs: the plan still called for a managed non-consumable
 - [x] **17.2** **Render moved to Starter with a 1GB disk at `/var/data`.** The free
       tier slept and had no disk: a cold start hung the first question ~40s, and every
       deploy wiped the counters. `ENTITLEMENT_STORE_PATH` and `USAGE_LOG_PATH` now point
@@ -584,9 +599,18 @@ decides whether the release survives contact with real users.
 
 ## 6. Next Steps
 
-1. **16.3 / 14.2** — an EAS build on the Pixel via internal testing. Nothing else
-   is worth deciding before Ferry has run on a real phone on a real connection
-2. **16.2 / 16.7** — payments profile and 12 testers. Both slow, both independent,
-   neither blocks anything technical
-3. **15.4** — a web purchase link, if sideload distribution is wanted before Play
-4. **13.11 / 13.12** — a host with a disk, and a domain ad blockers do not eat
+**No code features remain.** Everything left is a queue at Google or Paddle, a
+calendar, or a value to paste in once someone else produces it.
+
+1. **16.5 / 16.6** — the RevenueCat Play app, its service-account JSON, and the
+   `goog_` key into `eas.json`. The only item that moves without waiting on anyone,
+   and nothing on Play works until it is done
+2. **16.4** — the $20 consumable, once 16.2 clears. Its product ID is permanent
+3. **16.7** — twelve testers, fourteen continuous days. The longest pole by weeks,
+   and the clock only runs on the closed track; 3 of its 5 steps are already set up
+4. **16.2 / 17.1** — Google's merchant verification and Paddle's domain review, both
+   with other people. Paddle has asked its questions and been answered
+
+Worth doing when there is nothing else: what the free tier costs, which
+`usage_report.py` cannot see while Gemini and GPT have no rates in
+`model_prices.json`.

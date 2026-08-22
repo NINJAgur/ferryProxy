@@ -12,8 +12,9 @@ The wire format is documented in [PROTOCOL.md](PROTOCOL.md).
 
 ## What it actually does
 
-- **Encodes without ever inflating.** gzip and plain text are compared per message and the
-  smaller one is sent. Compressing a short prompt used to double it.
+- **Encodes without ever inflating.** Three encodings are compared per message and the
+  smallest is sent: plain text, gzip, and raw deflate against a dictionary both ends
+  already hold. The dictionary is what makes a short message compressible at all.
 - **Splits long answers into pieces** and fetches them a few at a time, retrying only the
   failures — a dropped connection costs seconds, not the whole answer.
 - **Verifies what it rebuilt** with a checksum over the decoded plaintext, so chunks that
@@ -106,9 +107,15 @@ Measured, at a 512-byte chunk size:
 | 2,269 B | 2,379 B | 1,828 B | **+23%** |
 | 4,019 B (real Gemini) | 4,291 B | 3,101 B | **+28%** |
 
-Below roughly 700 bytes of answer, the fixed envelope plus base64's overhead costs more
-than compression saves, and Ferry is genuinely worse than sending it plainly. Above that
-the saving climbs steeply. The app reports whichever is true.
+There used to be a crossover around 700 bytes: below it the envelope plus base64's
+overhead cost more than compression saved, and Ferry was genuinely worse than sending
+plainly. A shared dictionary removed it. Deflate has nothing to point at in a short
+message, so both ends now hold 401 bytes of what every payload repeats — envelope keys,
+model ids, common words — and match into that before the message starts. A 91-byte
+request becomes 56; a 514-byte one becomes 140, where gzip managed 232.
+
+The app still compares all three per message and reports whichever won, because the
+rule has not changed: encoding must never make a payload larger.
 
 The larger saving isn't compression at all: **"Answer short first"** asks the model to be
 brief, which took one real Gemini reply from 4,019 characters to 314. On a thin line,

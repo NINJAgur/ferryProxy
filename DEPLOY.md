@@ -30,7 +30,11 @@ Environment to set on the host — everything in `.env.example`, plus:
 |---|---|---|
 | `ALLOW_DEV_SUBSCRIPTION` | **unset, or `false`** | When true, anyone can unlock the paid models for free by POSTing to `/v1/dev/entitlement`. It defaults to false; do not turn it on. |
 | `REVENUECAT_API_KEY` | your key | Without it no receipt verifies, so every caller stays on the free tier. |
-| `ENTITLEMENT_STORE_PATH` | inside the volume | Otherwise usage resets on deploy. |
+| `ENTITLEMENT_STORE_PATH` | inside the volume | Otherwise purchases and usage reset on every deploy. |
+| `RESTORE_CODE_STORE_PATH` | inside the volume | The only thing linking a web purchase to a new device. Losing it strands every web buyer. |
+| `CHUNK_CACHE_PATH` | inside the volume | Answers waiting to be collected. Without it a deploy mid-answer loses one already generated and paid for. |
+| `USAGE_LOG_PATH` | inside the volume | What answers cost, which is how the price is set. |
+| `ALLOW_SANDBOX_PURCHASES` | **unset, or `false`** | When true a store's test purchase unlocks the paid models, and anyone who finds the sandbox checkout gets them free. |
 | `CORS_ALLOW_ORIGINS` | your web origin | Only constrains browsers; the native app sends no `Origin`. |
 
 Verify after deploying:
