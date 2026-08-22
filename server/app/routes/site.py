@@ -24,6 +24,10 @@ _STYLE = """
   nav a { margin-right:1.1rem; }
   .card { border:1px solid #2a2c46; border-radius:12px; padding:1.3rem 1.5rem; margin:1.5rem 0; }
   .price { font-size:2rem; color:#b5abfc; margin:0 0 .2rem; }
+  .cta { margin:1.4rem 0 .6rem; }
+  .button { display:inline-block; padding:.7rem 1.3rem; border-radius:10px;
+            border:1px solid #6d5efc; color:#b5abfc; text-decoration:none; }
+  .button:hover { background:rgba(109,94,252,0.12); }
   .tag { display:inline-block; font-size:12px; color:#8b8ba7; border:1px solid #2a2c46;
          border-radius:999px; padding:.15rem .6rem; margin-bottom:.6rem; }
 """
@@ -40,6 +44,10 @@ _HOME = """<!doctype html>
 
 <h1>Ferry</h1>
 <p class="sub">A transport layer for connections that barely work.</p>
+
+<p class="cta"><a class="button" href="{app}">Open Ferry in your browser</a></p>
+<p class="sub">Free, with no account and no install. Gemini Flash answers straight
+away; the paid models are one optional purchase, made inside the app.</p>
 
 <p>A bar of signal on a train. Hotel wifi that drops every thirty seconds. The edge
 of a village, an airport queue, a basement. Most apps assume a good connection and
@@ -64,6 +72,12 @@ whichever assistant you choose, and carries the answer back in one piece.</p>
 <h2>What it costs</h2>
 <p>Free to install, with no account and no setup. One optional payment adds the
 other providers Ferry can carry to. See <a href="/pricing">pricing</a>.</p>
+
+<h2>How to buy it</h2>
+<p><a href="{app}">Open Ferry</a>, then press <strong>Upgrade to Pro</strong> — on
+the opening screen, or in Settings under "Your plan". That opens a hosted checkout;
+once it is paid, press <strong>Restore purchases</strong> and the paid models
+unlock. There is nothing to sign up for either side of it.</p>
 
 <h2>Who answers</h2>
 <p>Ferry does not write answers and operates no model of its own. Questions are
@@ -102,6 +116,7 @@ companies charge per answer; Ferry pays them and passes on access.</p>
   <p><strong>Adds the other providers.</strong> Ferry can then carry to Anthropic's
   Claude, OpenAI's GPT and Google's Gemini Pro, and you choose which version
   answers you.</p>
+  <p><a class="button" href="{app}">Open Ferry and upgrade</a></p>
   <ul>
     <li><strong>{pool} answers</strong> across Claude, GPT and Gemini Pro, to use in
         your own time. They do not expire.</li>
@@ -163,12 +178,13 @@ conversations stay on your device.</p>
 
 @router.get("/", response_class=HTMLResponse)
 async def home() -> HTMLResponse:
-    return HTMLResponse(_HOME.format(style=_STYLE, nav=_NAV))
+    return HTMLResponse(_HOME.format(style=_STYLE, nav=_NAV, app=settings.web_app_url))
 
 
 @router.get("/pricing", response_class=HTMLResponse)
 async def pricing() -> HTMLResponse:
     return HTMLResponse(_PRICING.format(style=_STYLE, nav=_NAV,
+                                        app=settings.web_app_url,
                                         price=settings.unlock_price_display,
                                         pool=settings.purchase_answer_allowance))
 

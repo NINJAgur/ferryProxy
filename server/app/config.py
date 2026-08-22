@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     # volume as the entitlement store: losing it strands every web buyer.
     restore_code_store_path: str = ".restore-codes.json"
 
+    # Where the app itself lives. The relay serves the pricing and policy pages,
+    # so without this they describe a product with no way to reach it.
+    web_app_url: str = "https://ferryproxy.ninjagur-dev.workers.dev"
+
     # Comma-separated origins allowed to call the relay from a browser. The
     # native app sends no Origin at all, so this only constrains web.
     cors_allow_origins: str = "*"
