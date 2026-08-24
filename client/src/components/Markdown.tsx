@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TextStyle, View } from "react-native";
 
-import { colors, fonts } from "../theme";
+import { colors, fonts, fontsFor } from "../theme";
 
 /** Minimal renderer for the subset of markdown the models actually return here:
  *  `**bold**` spans, `## headings`, and `1.`/`-` list items. */
@@ -10,17 +10,21 @@ export function Markdown({ text, style }: { text: string; style?: TextStyle }) {
   return (
     <View style={styles.wrap}>
       {blocks.map((block, i) => {
+        // Per block rather than per answer: a model asked in Hebrew often
+        // replies with a paragraph of English in the middle of it.
+        const family = fontsFor(block);
         const heading = block.match(/^#{1,3}\s+(.*)$/);
         if (heading) {
           return (
-            <Text key={i} style={[styles.heading, style]}>
+            <Text key={i} selectable style={[styles.heading, { fontFamily: family.heading }, style]}>
               {heading[1]}
             </Text>
           );
         }
         return (
-          <Text key={i} style={[styles.para, style]}>
-            {renderInline(block)}
+          // An answer is the thing worth copying out of this app.
+          <Text key={i} selectable style={[styles.para, { fontFamily: family.body }, style]}>
+            {renderInline(block, family.headingSemi)}
           </Text>
         );
       })}
@@ -28,11 +32,11 @@ export function Markdown({ text, style }: { text: string; style?: TextStyle }) {
   );
 }
 
-function renderInline(text: string): React.ReactNode[] {
+function renderInline(text: string, bold: string): React.ReactNode[] {
   // Split on **bold**, keeping the captured inner text.
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     i % 2 === 1 ? (
-      <Text key={i} style={styles.bold}>
+      <Text key={i} style={{ fontFamily: bold }}>
         {part}
       </Text>
     ) : (
@@ -43,7 +47,8 @@ function renderInline(text: string): React.ReactNode[] {
 
 const styles = StyleSheet.create({
   wrap: { gap: 10 },
-  para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text },
-  heading: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 21, color: colors.text },
-  bold: { fontFamily: fonts.headingSemi },
+  // auto, not left: a paragraph is aligned by its own first letter, so a Hebrew
+  // answer reads from the right and an English one in the same chat does not move.
+  para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text, textAlign: "auto" },
+  heading: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 21, color: colors.text, textAlign: "auto" },
 });

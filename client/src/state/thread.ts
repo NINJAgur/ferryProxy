@@ -8,7 +8,6 @@ export interface ThreadMessage {
   status: MessageStatus;
   /** Which model answered, for showing on a retry. */
   model?: string;
-  note?: string;
   failReason?: string;
   retryCount?: number;
 }

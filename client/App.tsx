@@ -1,4 +1,9 @@
 import {
+  Assistant_400Regular,
+  Assistant_500Medium,
+  Assistant_600SemiBold,
+} from "@expo-google-fonts/assistant";
+import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
@@ -33,7 +38,16 @@ installWebStyles();
 export default function App() {
   const [screen, setScreen] = useState<Screen>("chat");
   const wide = useWide();
-  const [loaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
+  // Assistant carries the Hebrew, in the same three weights — through the same
+  // gate, so nothing renders in a face that has not arrived yet.
+  const [loaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Assistant_400Regular,
+    Assistant_500Medium,
+    Assistant_600SemiBold,
+  });
   const openChat = useThreadStore((s) => s.open);
 
   if (!loaded) {

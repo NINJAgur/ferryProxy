@@ -47,4 +47,34 @@ export const fonts = {
   mono: "monospace",
 };
 
+/**
+ * The same three weights, for Hebrew.
+ *
+ * Inter draws no Hebrew, so a Hebrew string asking for it falls back letter by
+ * letter to whatever the platform keeps — another face, at another weight,
+ * sitting beside the Latin around it. Assistant covers Hebrew and was drawn to
+ * sit with a grotesque like this one.
+ */
+export const hebrewFonts = {
+  heading: "Assistant_500Medium",
+  headingSemi: "Assistant_600SemiBold",
+  body: "Assistant_400Regular",
+  mono: "monospace",
+};
+
+/** The Hebrew block. Escaped rather than literal so the test survives a file
+ *  that gets re-saved in something other than UTF-8. */
+const HEBREW = /[\u0590-\u05FF]/;
+
+/**
+ * Which family a given string wants.
+ *
+ * React Native takes one family name per string rather than the fallback list a
+ * browser would resolve, so the choice has to be made where the text is — and
+ * made per string, since one chat holds both languages.
+ */
+export function fontsFor(text: string): typeof fonts {
+  return HEBREW.test(text) ? hebrewFonts : fonts;
+}
+
 export const radius = { sm: 4, md: 8, lg: 14 };

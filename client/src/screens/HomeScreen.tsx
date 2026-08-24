@@ -1,7 +1,10 @@
 import NetInfo from "@react-native-community/netinfo";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
+  NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   Pressable,
@@ -35,7 +38,7 @@ import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
 import { useWide, WIDE_COLUMN } from "../layout";
 import { COMPOSER_ID } from "../webStyles";
-import { colors, fonts } from "../theme";
+import { colors, fonts, fontsFor } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
 import { sendPrompt } from "../transport/reassembly";
@@ -84,6 +87,42 @@ export function HomeScreen() {
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
 
+  const threadRef = useRef<ScrollView>(null);
+  const threadHeight = useRef(0);
+  const atBottom = useRef(true);
+
+  /**
+   * Room for the Android keyboard, taken out of the thread rather than the window.
+   *
+   * Panning lifts the whole window, which is what carried the header and the
+   * model picker off the top of the screen and left the keyboard sitting over
+   * the bubble you were trying to select. Padding the screen leaves the bars
+   * where they are. Whatever the window does give back is measured rather than
+   * assumed, and subtracted, so a device that still resizes is not lifted twice.
+   */
+  const [keyboard, setKeyboard] = useState(0);
+  const [screenHeight, setScreenHeight] = useState(0);
+  const tallestScreen = useRef(0);
+  const lift = Math.max(keyboard - (tallestScreen.current - screenHeight), 0);
+
+  const measureScreen = (event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    tallestScreen.current = Math.max(tallestScreen.current, height);
+    setScreenHeight(height);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const shown = Keyboard.addListener("keyboardDidShow", (e) =>
+      setKeyboard(e.endCoordinates.height)
+    );
+    const hidden = Keyboard.addListener("keyboardDidHide", () => setKeyboard(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+
   const addMetric = useMetricsStore((s) => s.addMessage);
   const entitlement = useEntitlementStore();
   const settings = useSettingsStore();
@@ -101,21 +140,31 @@ export function HomeScreen() {
     setDismissedSetup(true);
   };
 
-  /**
-   * Picking a different model starts a fresh chat.
-   *
-   * Every send carries the conversation so far, so continuing a thread across a
-   * switch means paying to re-send another model's answers over a line that may
-   * barely carry the question. Only a deliberate choice does this — the default
-   * model chosen at launch goes through setModelId and leaves the chat alone.
-   */
-  const chooseModel = (next: string) => {
-    if (next !== modelId && messages.length > 0) startNew(generateId());
-    setModelId(next);
-  };
-
   const refreshQueue = () => void loadQueue().then(setQueued);
   const patch = patchMessage;
+
+  /**
+   * The thread opens on the newest message and stays there as answers land —
+   * unless the reader has gone back up for an older one, when following the
+   * bottom would be taking the screen off them mid-sentence.
+   */
+  const followThread = (animated: boolean) => {
+    if (atBottom.current) threadRef.current?.scrollToEnd({ animated });
+  };
+
+  const onThreadContent = (_width: number, height: number) => {
+    // Only a message arriving is worth animating. Opening a chat that is
+    // already long would otherwise scroll past all of it on the way down.
+    const grew = threadHeight.current > 0 && height > threadHeight.current;
+    threadHeight.current = height;
+    followThread(grew);
+  };
+
+  const onThreadScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    // Near enough counts: a flick rarely comes to rest exactly on the end.
+    atBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 40;
+  };
 
   useEffect(() => {
     const next = pickDefaultModel(entitlement.models, modelId);
@@ -208,9 +257,9 @@ export function HomeScreen() {
         setPendingState
       );
       patch(id, { status: "delivered", failReason: undefined });
-      const pieces = result.metrics.totalChunks;
       // The answer and its measurement share an id, so the chat can show what
-      // the message cost beside the message itself.
+      // the message cost beside the message itself — the piece count included,
+      // which is why the message carries no note of its own about it.
       const answerId = generateId();
       appendMessage({
         id: answerId,
@@ -218,7 +267,6 @@ export function HomeScreen() {
         content: result.response.content,
         timestamp: Date.now(),
         status: "delivered",
-        note: pieces > 1 ? `Arrived in ${pieces} pieces` : undefined,
       });
       const thread = useThreadStore.getState();
       addMetric({
@@ -381,10 +429,11 @@ export function HomeScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
-      // iOS only. Android is set to pan, so the system already lifts the whole
-      // window when the keyboard opens; adding padding on top of that overshoots
-      // and pushes the header off the screen.
+      style={[styles.screen, lift > 0 && { paddingBottom: lift }]}
+      onLayout={measureScreen}
+      // iOS only: there the keyboard event carries a screen position this can
+      // work from. On Android it reports the un-resized window either way, so
+      // the padding above does the lifting.
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={12}
     >
@@ -430,15 +479,32 @@ export function HomeScreen() {
       </View>
 
       <View style={[styles.modelRow, wide && styles.column]}>
+        {/* Switching keeps the conversation. It used to start a fresh one so a
+            switch would not re-send another model's answers over a thin line,
+            but historyFor caps what travels, so that now costs the recent end
+            of the chat rather than all of it — less than losing the thread. */}
         <ModelPicker
           value={modelId}
-          onChange={chooseModel}
+          onChange={setModelId}
           disabled={busy}
           models={entitlement.models}
         />
       </View>
 
-      <ScrollView style={styles.thread} contentContainerStyle={[styles.threadContent, wide && styles.column]}>
+      <ScrollView
+        ref={threadRef}
+        style={styles.thread}
+        contentContainerStyle={[styles.threadContent, wide && styles.column]}
+        onContentSizeChange={onThreadContent}
+        // The keyboard takes its room out of this thread, so the newest message
+        // has to be caught on the way past when it shrinks.
+        onLayout={() => followThread(false)}
+        onScroll={onThreadScroll}
+        scrollEventThrottle={16}
+        // Reaching into a message is not a request to put the keyboard away, and
+        // the default swallows the press that starts a selection to do just that.
+        keyboardShouldPersistTaps="handled"
+      >
         <QueuedList messages={queued} />
         {/* Queued messages are listed in QueuedList; don't repeat them as bubbles. */}
         {messages
@@ -475,16 +541,15 @@ export function HomeScreen() {
           nativeID={COMPOSER_ID}
           style={[
             styles.input,
+            // Switches as the question does: Inter has no Hebrew to draw with.
+            { fontFamily: fontsFor(draft).body },
             wide && styles.inputWide,
             // Only with something in it. An empty multiline field reports a
             // content size of its own and would open several lines tall.
             Platform.OS !== "web" && draft.length > 0 && draftHeight > 0
-              // Two pixels of slack: set to exactly the content height, a
-              // sub-pixel rounding difference is enough for the browser to
-              // decide it overflows and draw a scrollbar on the first line.
               ? {
                   height: Math.min(
-                    Math.max(Math.ceil(draftHeight) + 2, wide ? 54 : 44),
+                    Math.max(Math.ceil(draftHeight), wide ? 54 : 44),
                     COMPOSER_MAX_HEIGHT
                   ),
                 }
@@ -492,9 +557,11 @@ export function HomeScreen() {
           ]}
           multiline
           onContentSizeChange={(e) => setDraftHeight(e.nativeEvent.contentSize.height)}
-          // One row to start with. Without it a multiline field opens at the
-          // browser's own idea of a textarea and fills the bottom of the screen.
-          numberOfLines={1}
+          // One row to start with, on web: without it a textarea opens at the
+          // browser's own idea of one and fills the bottom of the screen. Never
+          // on Android, where the prop reaches TextView.setLines() — that pins
+          // the field to exactly one line and is why it never grew on a phone.
+          numberOfLines={Platform.OS === "web" ? 1 : undefined}
           placeholder={offlineMode ? "Write the next one" : "Ask something"}
           placeholderTextColor={colors.text40}
           value={draft}
@@ -551,8 +618,13 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontFamily: fonts.body, fontSize: 12, color: colors.text55 },
-  modelRow: { paddingHorizontal: 18, paddingTop: 14 },
-  thread: { flex: 1 },
+  // The variant chips are the last thing before the conversation, and read as
+  // part of the first message without a gap under them.
+  modelRow: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10 },
+  // The thread is the only part that gives ground. minHeight 0 is what lets it:
+  // a flex item will not shrink below its content without it, so a composer
+  // grown to six lines pushed the newest message out under it instead.
+  thread: { flex: 1, minHeight: 0 },
   threadContent: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 8 },
   handshakeContent: { paddingBottom: 32 },
   headerWide: { paddingTop: 26, paddingBottom: 20 },
@@ -566,7 +638,9 @@ const styles = StyleSheet.create({
   // width, sized for the window rather than for a phone held at arm's length.
   column: { width: "100%", maxWidth: WIDE_COLUMN, alignSelf: "center", paddingHorizontal: 40 },
   fill: { flexGrow: 1, justifyContent: "center" },
-  composerBar: { borderTopWidth: 1, borderTopColor: colors.divider09 },
+  // Sized by the composer inside it, and never squeezed to make room for the
+  // thread — the growing field has to take its space from the conversation.
+  composerBar: { flexShrink: 0, borderTopWidth: 1, borderTopColor: colors.divider09 },
   composer: {
     flexDirection: "row",
     gap: 10,
@@ -584,6 +658,10 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral800,
     borderRadius: 22,
     color: colors.text,
+    // auto, not left: a line is aligned by its own first letter, so a question
+    // typed in Hebrew starts at the right and one in English still starts at
+    // the left. The web side of this is in webStyles, which a browser needs.
+    textAlign: "auto",
     // 16 exactly: below it, mobile Safari zooms the page when the field takes
     // focus, which then leaves the whole layout scaled up.
     fontSize: 16,

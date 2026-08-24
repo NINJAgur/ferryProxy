@@ -5,7 +5,7 @@ import { useMetricsStore } from "../state/metricsStore";
 import { ThreadMessage } from "../state/thread";
 import { Markdown } from "./Markdown";
 import { PressState } from "./pressState";
-import { colors, fonts, radius } from "../theme";
+import { colors, fonts, fontsFor, radius } from "../theme";
 
 interface MessageBubbleProps {
   message: ThreadMessage;
@@ -38,7 +38,17 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
         ]}
       >
         {isUser ? (
-          <Text style={[styles.text, styles.textUser, failed && styles.textFailed]}>{message.content}</Text>
+          <Text
+            selectable
+            style={[
+              styles.text,
+              { fontFamily: fontsFor(message.content).body },
+              styles.textUser,
+              failed && styles.textFailed,
+            ]}
+          >
+            {message.content}
+          </Text>
         ) : (
           <Markdown text={message.content} />
         )}
@@ -93,7 +103,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
 
 function metaLabel(message: ThreadMessage): string {
   const time = formatTime(message.timestamp);
-  if (message.role === "assistant") return message.note ? message.note : time;
+  if (message.role === "assistant") return time;
   if (message.status === "sending") return "Sending…";
   if (message.status === "queued") return "Waiting for a line";
   return `Delivered ${time}`;
@@ -115,7 +125,9 @@ const styles = StyleSheet.create({
   bubbleUser: { backgroundColor: colors.accent900 },
   // 1e: the un-delivered bubble is a dashed outline on the card ground, not a faded fill.
   bubbleFailed: { backgroundColor: colors.card, borderWidth: 1, borderStyle: "dashed", borderColor: colors.neutral700 },
-  text: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24, color: colors.text, flexShrink: 1 },
+  // auto, not left: the message is aligned by its own first letter, so Hebrew
+  // reads from the right without flipping the app around it.
+  text: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24, color: colors.text, flexShrink: 1, textAlign: "auto" },
   textUser: { color: colors.accent200 },
   textFailed: { color: colors.text65 },
   meta: { fontFamily: fonts.body, fontSize: 12, color: colors.text40, paddingHorizontal: 4 },

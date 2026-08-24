@@ -26,7 +26,8 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com",
-        "EXPO_PUBLIC_BILLING": "play"
+        "EXPO_PUBLIC_BILLING": "play",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_fuzEkJYnBXKEuZoJDqyQeTrFSxg"
       },
       "android": {
         "buildType": "app-bundle"

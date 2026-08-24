@@ -64,18 +64,22 @@ EXPO_PUBLIC_API_URL=http://127.0.0.1:8000
 
 On a physical phone, use your machine's LAN IP rather than `127.0.0.1`.
 
-## Providers
+## Providers and what a purchase buys
 
-`anthropic`, `openai`, `gemini` — chosen per request from the app.
+`anthropic`, `openai`, `gemini` — nine models across the three, chosen per message in the
+app. The relay holds the accounts: four service keys in `server/.env`, two of them for
+Gemini so free traffic can never bill the paid account. There is no key entry in the app
+and nothing is stored on the device — which model you may use is decided by the relay
+from your receipt, not by the client asking nicely.
 
-Keys can come from either end. A key you add in the app's own settings is held in the
-device keystore and sent with your requests in an `X-Provider-Key` header, so usage lands
-on your account rather than the relay's. Failing that, the relay falls back to whatever is
-in `server/.env`. `GET /v1/providers` reports which the relay itself can cover, and the
-app's first screen shows, per model, whether a usable key exists at all.
+Gemini Flash is free, with a monthly allowance that renews. One optional purchase of
+**$20** adds Claude, GPT and Gemini Pro: a fixed pool of **500 answers** to spend across
+them, which does not expire and does not renew. A pool rather than a subscription because
+the payment happens once, so what it covers has to be finite.
 
-No provider hands out keys programmatically, so the app cannot create one for you — the
-first screen links to each provider's key page instead, where you sign in and make one.
+There are no accounts. The store's receipt is the credential, and a restore code — shown
+in Settings once unlocked — carries a purchase to a new device, which is the one thing a
+browser checkout cannot do on its own.
 
 ## Testing a bad connection
 
@@ -123,7 +127,11 @@ asking for less beats compressing more.
 
 ## Known limits
 
-- The relay keeps cached chunks in memory, so it is single-instance by design.
+- Cached chunks are written to disk as well as held in memory, so an answer survives a
+  restart mid-collection — but the cache is local to one relay, so it is still
+  single-instance by design.
+- Play Billing only works in a build Play itself installed. A sideloaded APK cannot buy
+  anything, which is why the web checkout exists at all.
 - TLS-intercepting antivirus (Avast and similar) will block the relay's outbound HTTPS
   until its CA is added to a trust bundle; `SSL_CERT_FILE` points Python at one.
 - Ferry is its own client. It cannot compress traffic from the official ChatGPT or Gemini

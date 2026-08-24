@@ -548,13 +548,25 @@ customer id, so `receipts.py` never learns which was used.
       to the internal testing track
 - [x] **16.8** Store listing: descriptions, icon, feature graphic, screenshots,
       content rating, data safety, sign-in details, privacy and deletion URLs
-- [ ] **16.2** Google Payments merchant profile — no purchase works until approved
-- [ ] **16.4** One-time product at $20, created as a **consumable** — a pool that
-      can run out has to be re-buyable, and a non-consumable can be bought once per
-      account for good. The product ID can never be changed afterwards
-- [ ] **16.5** RevenueCat: add a **Play** app, service account JSON, attach to `pro`
-- [ ] **16.6** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` (`goog_…`) in `eas.json`
-- [ ] **16.7** Twelve testers, fourteen continuous days on a closed track
+- [x] **16.2** Google Payments merchant profile verified — the micro-deposit cleared
+- [x] **16.4** `ferry_pro_500` created at $20 worldwide, purchase option `standard`,
+      type **Buy**, digital content, multi-quantity off — a quantity of two would read as
+      one purchase to the relay and hand over 500 answers for $40. Play's newer one-time
+      product model has no consumable checkbox; repurchase is decided by whether the app
+      consumes the purchase, which is why the type is set in RevenueCat instead
+- [x] **16.5** RevenueCat Play app wired: service account in its own `ferry-play` Cloud
+      project, Play Android Developer and Developer Reporting APIs enabled, the account
+      invited into Play Console, `ferry_pro_500` imported as a **consumable** and attached
+      to `pro`. Credentials validate. Google's own note: they can take **36 hours** to
+      become valid, and every check fails meanwhile — which looks exactly like a mistake
+- [x] **16.10** Google developer notifications. The Pub/Sub **Editor role** is not the
+      same thing as the Pub/Sub **API**, and granting the first without enabling the second
+      fails with a message about neither. Refunds and cancellations now reach the relay
+      when they happen rather than whenever that customer is next asked about
+- [x] **16.6** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` in `eas.json`. Public by design: it
+      ships inside the app
+- [ ] **16.7** Twelve testers, fourteen continuous days on a closed track — the release
+      is with Google for review
 - [ ] **16.9** Apply for production access
 
 ### Phase 17 — Before going live ⚠️
@@ -599,18 +611,18 @@ decides whether the release survives contact with real users.
 
 ## 6. Next Steps
 
-**No code features remain.** Everything left is a queue at Google or Paddle, a
-calendar, or a value to paste in once someone else produces it.
+**No code features remain, and the Play chain is now wired end to end** — merchant profile
+verified, product created, RevenueCat credentials valid, the key in the build. What is
+left is other people's queues and a calendar.
 
-1. **16.5 / 16.6** — the RevenueCat Play app, its service-account JSON, and the
-   `goog_` key into `eas.json`. The only item that moves without waiting on anyone,
-   and nothing on Play works until it is done
-2. **16.4** — the $20 consumable, once 16.2 clears. Its product ID is permanent
-3. **16.7** — twelve testers, fourteen continuous days. The longest pole by weeks,
-   and the clock only runs on the closed track; 3 of its 5 steps are already set up
-4. **16.2 / 17.1** — Google's merchant verification and Paddle's domain review, both
-   with other people. Paddle has asked its questions and been answered
+1. **16.7** — twelve testers, fourteen continuous days. The release is with Google for
+   review; the clock only runs once it is live on the closed track, and it is the longest
+   pole by weeks
+2. **16.9** — production access, which needs 16.7 finished first
+3. **17.1** — Paddle's domain review. Answered, waiting. Play does not depend on it, and
+   if it fails the fallback is a merchant of record that issues licence keys, which the
+   restore-code flow already fits
 
-Worth doing when there is nothing else: what the free tier costs, which
-`usage_report.py` cannot see while Gemini and GPT have no rates in
-`model_prices.json`.
+Worth doing when there is nothing else: the free tier costs $0.21 per device per month at
+100 answers, so a hundred free devices is $21 — the only cost here that grows with how
+well the app does.

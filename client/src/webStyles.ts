@@ -18,7 +18,13 @@ const CSS = `
    overflow — text that fits is untouched. */
 * { overflow-wrap: anywhere; word-break: break-word; }
 
+/* Hebrew typed into the composer. A browser picks a textarea's direction from
+   the document, not from what is in it, so without this every Hebrew line
+   starts at the left. plaintext reads each line's own first letter, which is
+   what the phone does natively and what the bubbles already do — react-native-web
+   puts dir="auto" on Text, but nothing on the field you type into. */
 textarea {
+  unicode-bidi: plaintext;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.38) transparent;
 }
