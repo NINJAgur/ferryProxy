@@ -5,7 +5,7 @@ import { useMetricsStore } from "../state/metricsStore";
 import { ThreadMessage } from "../state/thread";
 import { Markdown } from "./Markdown";
 import { PressState } from "./pressState";
-import { colors, fonts, fontsFor, radius } from "../theme";
+import { colors, fonts, fontsFor, radius, readsRightToLeft } from "../theme";
 
 interface MessageBubbleProps {
   message: ThreadMessage;
@@ -43,6 +43,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
             style={[
               styles.text,
               { fontFamily: fontsFor(message.content).body },
+              readsRightToLeft(message.content) && styles.rightToLeft,
               styles.textUser,
               failed && styles.textFailed,
             ]}
@@ -128,6 +129,10 @@ const styles = StyleSheet.create({
   // auto, not left: the message is aligned by its own first letter, so Hebrew
   // reads from the right without flipping the app around it.
   text: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24, color: colors.text, flexShrink: 1, textAlign: "auto" },
+  // Said outright for the messages auto gets wrong. Android reads "auto" as the
+  // app's own direction and pins a Hebrew message to the left edge; only an
+  // explicit right reaches the gravity that puts it back where it belongs.
+  rightToLeft: { textAlign: "right", writingDirection: "rtl" },
   textUser: { color: colors.accent200 },
   textFailed: { color: colors.text65 },
   meta: { fontFamily: fonts.body, fontSize: 12, color: colors.text40, paddingHorizontal: 4 },

@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TextStyle, View } from "react-native";
 
-import { colors, fonts, fontsFor } from "../theme";
+import { colors, fonts, fontsFor, readsRightToLeft } from "../theme";
 
 /** Minimal renderer for the subset of markdown the models actually return here:
  *  `**bold**` spans, `## headings`, and `1.`/`-` list items. */
@@ -13,17 +13,18 @@ export function Markdown({ text, style }: { text: string; style?: TextStyle }) {
         // Per block rather than per answer: a model asked in Hebrew often
         // replies with a paragraph of English in the middle of it.
         const family = fontsFor(block);
+        const rtl = readsRightToLeft(block) && styles.rightToLeft;
         const heading = block.match(/^#{1,3}\s+(.*)$/);
         if (heading) {
           return (
-            <Text key={i} selectable style={[styles.heading, { fontFamily: family.heading }, style]}>
+            <Text key={i} selectable style={[styles.heading, { fontFamily: family.heading }, rtl, style]}>
               {heading[1]}
             </Text>
           );
         }
         return (
           // An answer is the thing worth copying out of this app.
-          <Text key={i} selectable style={[styles.para, { fontFamily: family.body }, style]}>
+          <Text key={i} selectable style={[styles.para, { fontFamily: family.body }, rtl, style]}>
             {renderInline(block, family.headingSemi)}
           </Text>
         );
@@ -51,4 +52,8 @@ const styles = StyleSheet.create({
   // answer reads from the right and an English one in the same chat does not move.
   para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text, textAlign: "auto" },
   heading: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 21, color: colors.text, textAlign: "auto" },
+  // Said outright for the blocks auto gets wrong. Android reads "auto" as the
+  // app's own direction and lays a Hebrew paragraph out against the left edge,
+  // full stop and all; only an explicit right turns it around.
+  rightToLeft: { textAlign: "right", writingDirection: "rtl" },
 });

@@ -77,4 +77,26 @@ export function fontsFor(text: string): typeof fonts {
   return HEBREW.test(text) ? hebrewFonts : fonts;
 }
 
+/** Latin, Greek and Cyrillic — the letters with a left-to-right direction of
+ *  their own. Digits and punctuation have none and decide nothing. Escaped for
+ *  the same reason the block above is. */
+const LTR_LETTER = /[A-Za-z\u00C0-\u024F\u0370-\u04FF]/;
+
+/**
+ * Whether a string reads right to left.
+ *
+ * The first letter with a direction of its own decides, which is the rule a
+ * browser applies to dir="auto" — so a Hebrew paragraph with an English word in
+ * it still reads from the right, and an English one is left alone. Android has
+ * to be told the answer: it aligns a paragraph by the app's layout direction
+ * rather than by the script in it, which puts a Hebrew answer hard against the
+ * left edge whatever textAlign "auto" is supposed to mean.
+ */
+export function readsRightToLeft(text: string): boolean {
+  const rtl = text.search(HEBREW);
+  if (rtl < 0) return false;
+  const ltr = text.search(LTR_LETTER);
+  return ltr < 0 || rtl < ltr;
+}
+
 export const radius = { sm: 4, md: 8, lg: 14 };

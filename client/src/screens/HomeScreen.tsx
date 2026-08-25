@@ -1,5 +1,5 @@
 import NetInfo from "@react-native-community/netinfo";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -38,7 +38,7 @@ import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
 import { useWide, WIDE_COLUMN } from "../layout";
 import { COMPOSER_ID } from "../webStyles";
-import { colors, fonts, fontsFor } from "../theme";
+import { colors, fonts, fontsFor, readsRightToLeft } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
 import { sendPrompt } from "../transport/reassembly";
@@ -67,8 +67,8 @@ export function HomeScreen() {
   const notifyRef = useRef(false);
 
   const [draft, setDraft] = useState("");
-  // A web textarea does not grow on its own: without a height taken from its
-  // content it keeps its one row and scrolls, which is not what a composer does.
+  // iOS: a UITextView does not grow on its own, so the composer is given the
+  // height its content reports. Web measures the DOM, Android sizes itself.
   const [draftHeight, setDraftHeight] = useState(0);
   const [modelId, setModelId] = useState<string>("");
   const conversations = useThreadStore((t) => t.conversations);
@@ -303,7 +303,6 @@ export function HomeScreen() {
     if (!content || pending) return;
     setDraft("");
     setDraftHeight(0);
-    fitComposer();
     const id = generateId();
 
     // A conversation is created by the first thing said in it, not by opening the
@@ -343,8 +342,13 @@ export function HomeScreen() {
    * height first made it collapse, because a scrolling field measures what is
    * visible. Setting it to auto and reading the real scroll height is exact in
    * both directions, which is what every auto-growing textarea on the web does.
+   *
+   * It runs after the render that changed the draft rather than during it. Read
+   * on the way in, a send measured the text it was in the middle of clearing and
+   * left the composer six lines tall over an empty field, sitting on top of the
+   * message that had just been sent.
    */
-  function fitComposer() {
+  useLayoutEffect(() => {
     if (Platform.OS !== "web") return;
     const node = inputRef.current as unknown as HTMLTextAreaElement | null;
     if (!node || !node.style) return;
@@ -355,7 +359,15 @@ export function HomeScreen() {
     // draw a scrollbar on the very first line.
     const fitted = Math.max(node.scrollHeight + 2, floor);
     node.style.height = `${Math.min(fitted, COMPOSER_MAX_HEIGHT)}px`;
-  }
+  }, [draft, wide]);
+
+  // A growing composer takes its room from the thread, which shrinks from the
+  // bottom — so the newest message slides up behind it unless the thread is
+  // re-anchored. Content changes and the ScrollView's own layout event do not
+  // cover this: neither of them fires when only the composer changed size.
+  useLayoutEffect(() => {
+    followThread(false);
+  }, [draft, draftHeight, wide]);
 
   async function handleNotifyMe() {
     if (await requestLandingNotification()) {
@@ -543,10 +555,15 @@ export function HomeScreen() {
             styles.input,
             // Switches as the question does: Inter has no Hebrew to draw with.
             { fontFamily: fontsFor(draft).body },
+            readsRightToLeft(draft) && styles.inputRightToLeft,
             wide && styles.inputWide,
-            // Only with something in it. An empty multiline field reports a
-            // content size of its own and would open several lines tall.
-            Platform.OS !== "web" && draft.length > 0 && draftHeight > 0
+            // iOS only. A height of its own is what stopped the field growing on
+            // Android: pinned to the size it was first measured at, it is never
+            // laid out again, so the measurement that would have grown it never
+            // arrives. Left alone it sizes itself between min and max. Still
+            // guarded on content, because an empty multiline field on iOS
+            // reports a content size that would open it several lines tall.
+            Platform.OS === "ios" && draft.length > 0 && draftHeight > 0
               ? {
                   height: Math.min(
                     Math.max(Math.ceil(draftHeight), wide ? 54 : 44),
@@ -556,19 +573,19 @@ export function HomeScreen() {
               : null,
           ]}
           multiline
-          onContentSizeChange={(e) => setDraftHeight(e.nativeEvent.contentSize.height)}
+          onContentSizeChange={
+            Platform.OS === "ios"
+              ? (e) => setDraftHeight(e.nativeEvent.contentSize.height)
+              : undefined
+          }
           // One row to start with, on web: without it a textarea opens at the
           // browser's own idea of one and fills the bottom of the screen. Never
-          // on Android, where the prop reaches TextView.setLines() — that pins
-          // the field to exactly one line and is why it never grew on a phone.
+          // on native, where it caps the measured height at a single line.
           numberOfLines={Platform.OS === "web" ? 1 : undefined}
           placeholder={offlineMode ? "Write the next one" : "Ask something"}
           placeholderTextColor={colors.text40}
           value={draft}
-          onChangeText={(next) => {
-            setDraft(next);
-            fitComposer();
-          }}
+          onChangeText={setDraft}
           onSubmitEditing={handleSend}
           onKeyPress={Platform.OS === "web" ? handleComposerKey : undefined}
           editable={!busy}
@@ -670,6 +687,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
   },
+  // Said outright once a question turns out to be Hebrew. Android hands "auto"
+  // the app's own direction, which starts the line at the left however it reads.
+  inputRightToLeft: { textAlign: "right", writingDirection: "rtl" },
   sendBtn: {
     height: 44,
     paddingHorizontal: 20,
