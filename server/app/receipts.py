@@ -9,7 +9,10 @@ from app.restore_codes import restore_codes
 
 logger = logging.getLogger(__name__)
 
-# The entitlement configured in RevenueCat that the add-on grants.
+# What the add-on is, on every store: a one-time purchase, bought again when the
+# answers run out. Deliberately NOT an entitlement — a consumable does not hold
+# one open, so asking RevenueCat "does this customer own pro?" answers no the
+# moment the purchase is consumed, however many pools they have bought.
 REVENUECAT_ENTITLEMENT = "pro"
 _REVENUECAT_URL = "https://api.revenuecat.com/v1/subscribers/{app_user_id}"
 
@@ -46,19 +49,20 @@ class Purchase:
     dev: bool = False
 
 
-def _records(subscriber: dict, entitlement: dict) -> List[dict]:
-    """Every purchase behind an entitlement, oldest first."""
-    product = entitlement.get("product_identifier")
-    entries = subscriber.get("non_subscriptions", {}).get(product)
-    if entries is None:
-        # Subscriptions are one object rather than a list. Ferry does not sell
-        # one, but an entitlement configured that way should still resolve.
-        entries = subscriber.get("subscriptions", {}).get(product)
-    if entries is None:
-        return []
-    if isinstance(entries, dict):
-        entries = [entries]
-    records = [e for e in entries if isinstance(e, dict)]
+def _records(subscriber: dict) -> List[dict]:
+    """Every one-time purchase this customer has made, oldest first.
+
+    Across every product rather than one: the app sells a single thing, and a
+    customer who has bought it twice has two records to count. Subscriptions are
+    read too — Ferry sells none, but a product configured that way should not
+    silently go missing.
+    """
+    records: List[dict] = []
+    for bucket in ("non_subscriptions", "subscriptions"):
+        for entries in (subscriber.get(bucket) or {}).values():
+            if isinstance(entries, dict):
+                entries = [entries]
+            records.extend(e for e in entries if isinstance(e, dict))
     records.sort(key=lambda e: e.get("purchase_date") or "")
     return records
 
@@ -74,14 +78,14 @@ def _is_real(record: dict) -> bool:
     return record.get("is_sandbox") is False
 
 
-def _purchase(subscriber: dict, entitlement: dict) -> Optional[Purchase]:
-    """Which purchase this entitlement rests on, and how many there have been."""
+def _purchase(subscriber: dict) -> Optional[Purchase]:
+    """Which purchase the pool is keyed to, and how many there have been."""
     records = [
-        r for r in _records(subscriber, entitlement)
+        r for r in _records(subscriber)
         if _is_real(r) or settings.allow_sandbox_purchases
     ]
     if not records:
-        logger.warning("no usable purchase behind the entitlement; treating as free tier")
+        # Ordinary for anyone who has not bought anything, so not a warning.
         return None
 
     # The oldest, so the pool stays in one place as later purchases are added to it.
@@ -143,11 +147,7 @@ async def verify_receipt(token: str) -> Optional[Purchase]:
         if response.status_code != 200:
             logger.info("RevenueCat rejected the receipt: %s", response.status_code)
             return None
-        subscriber = response.json().get("subscriber", {})
-        entitlement = subscriber.get("entitlements", {}).get(REVENUECAT_ENTITLEMENT)
-        if entitlement is None:
-            return None
-        return _purchase(subscriber, entitlement)
+        return _purchase(response.json().get("subscriber", {}))
     except httpx.HTTPError:
         # A store we cannot reach must not silently unlock paid models, nor should
         # it break the free tier — so the caller carries on without the add-on.

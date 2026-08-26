@@ -579,9 +579,12 @@ export function HomeScreen() {
               : undefined
           }
           // One row to start with, on web: without it a textarea opens at the
-          // browser's own idea of one and fills the bottom of the screen. Never
-          // on native, where it caps the measured height at a single line.
-          numberOfLines={Platform.OS === "web" ? 1 : undefined}
+          // browser's own idea of one and fills the bottom of the screen. On
+          // Android the prop defaults to 1 whether it is passed or not, and that
+          // default caps the measured height at a single line — so leaving it out
+          // is not the same as leaving it open, and it has to be given the number
+          // of lines the field is allowed to reach.
+          numberOfLines={Platform.OS === "web" ? 1 : COMPOSER_MAX_LINES}
           placeholder={offlineMode ? "Write the next one" : "Ask something"}
           placeholderTextColor={colors.text40}
           value={draft}
@@ -622,6 +625,8 @@ function countWord(n: number): string {
 /** Six or so lines. Past that the composer would be eating the conversation it
  *  belongs to, so it scrolls — the same place Gemini stops growing. */
 const COMPOSER_MAX_HEIGHT = 160;
+/** The same ceiling counted in lines, for the platforms that measure that way. */
+const COMPOSER_MAX_LINES = 6;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },

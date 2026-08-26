@@ -9,7 +9,19 @@ import { BillingProvider, PurchaseResult } from "./types";
  * is the only provider a Play build may use. The native module does not exist on
  * web or in Expo Go, where every call reports "not available" rather than crashing.
  */
-const ENTITLEMENT_ID = "pro";
+/**
+ * A purchase is counted, not held.
+ *
+ * The add-on is a consumable so it can be bought again when the answers run
+ * out, and a consumable does not keep an entitlement open — RevenueCat says so
+ * itself. Asking "does this customer own pro?" answered no immediately after a
+ * successful purchase, so the app reported a failure for money that had just
+ * been taken. What is true instead is that the customer has one-time purchases
+ * on record; the relay counts them to size the pool.
+ */
+function owns(info: { nonSubscriptionTransactions?: unknown[] }): boolean {
+  return (info.nonSubscriptionTransactions?.length ?? 0) > 0;
+}
 
 const API_KEY =
   Platform.OS === "ios"
@@ -57,7 +69,7 @@ export const playBilling: BillingProvider = {
       const sdk = await ready();
       if (!sdk) return null;
       const info = await sdk.getCustomerInfo();
-      return info.entitlements.active[ENTITLEMENT_ID] ? await sdk.getAppUserID() : null;
+      return owns(info) ? await sdk.getAppUserID() : null;
     } catch {
       // Nothing owned is the ordinary case, and a store that cannot be reached
       // must not stop a free install from working.
@@ -75,7 +87,7 @@ export const playBilling: BillingProvider = {
       if (!pack) return { receipt: null, error: "Nothing is on sale right now." };
 
       const { customerInfo } = await sdk.purchasePackage(pack);
-      if (!customerInfo.entitlements.active[ENTITLEMENT_ID]) {
+      if (!owns(customerInfo)) {
         return { receipt: null, error: "The purchase didn't complete." };
       }
       return { receipt: await sdk.getAppUserID() };
@@ -91,7 +103,7 @@ export const playBilling: BillingProvider = {
       const sdk = await ready();
       if (!sdk) return unavailable;
       const info = await sdk.restorePurchases();
-      if (!info.entitlements.active[ENTITLEMENT_ID]) return { receipt: null };
+      if (!owns(info)) return { receipt: null };
       return { receipt: await sdk.getAppUserID() };
     } catch (err) {
       return { receipt: null, error: message(err) };
