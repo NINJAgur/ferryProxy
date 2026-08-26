@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FadingRule } from "../components/FadingRule";
@@ -57,6 +57,13 @@ async function purchase(step: () => Promise<{ receipt: string | null }>): Promis
 }
 
 export function SettingsScreen() {
+  // Opening this screen is the moment the number matters, and it is a deliberate
+  // act rather than something happening mid-conversation — so it is a fair place
+  // to spend a request putting the count back in step with the relay.
+  useEffect(() => {
+    void useEntitlementStore.getState().load();
+  }, []);
+
   const wide = useWide();
   // A purchase made in a browser has no store to ask "what did this person
   // buy?", so the buyer is given something to carry to their next device.

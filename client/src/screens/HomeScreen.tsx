@@ -268,6 +268,10 @@ export function HomeScreen() {
         timestamp: Date.now(),
         status: "delivered",
       });
+      // A paid answer came out of the pool; the free model owes it nothing.
+      if (entitlement.models.find((m) => m.id === used)?.tier === "paid") {
+        entitlement.spend();
+      }
       const thread = useThreadStore.getState();
       addMetric({
         id: answerId,

@@ -20,6 +20,8 @@ interface EntitlementState {
 
   /** Ask the relay what this device may use. Works with or without a receipt. */
   load: (receipt?: string) => Promise<void>;
+  /** Count one paid answer against the pool, without asking the relay again. */
+  spend: () => void;
 }
 
 export const useEntitlementStore = create<EntitlementState>((set, get) => ({
@@ -31,6 +33,12 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
   models: [],
   error: null,
   receipt: null,
+
+  // The relay counts the answer as it serves it. Asking it again afterwards
+  // would cost a round trip per message on a line that can barely carry the
+  // message, so the count is kept in step here and reconciled whenever the
+  // entitlement is loaded.
+  spend: () => set((s) => (s.unlocked ? { answersUsed: s.answersUsed + 1 } : {})),
 
   load: async (receipt) => {
     const token = receipt ?? get().receipt ?? undefined;

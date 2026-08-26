@@ -17,8 +17,20 @@ services:
       # Never true in production: it would let anyone unlock the paid models.
       - key: ALLOW_DEV_SUBSCRIPTION
         value: "false"
-      - key: MONTHLY_ANSWER_ALLOWANCE
-        value: "300"
+      - key: PURCHASE_ANSWER_ALLOWANCE
+        value: "500"
+      # Everything the relay writes belongs on the mounted disk. The defaults sit
+      # under the app directory, which is read-only in the container — the writes
+      # then fail quietly, and a restore code that was never written is a web
+      # purchase nobody can move to a new device.
+      - key: ENTITLEMENT_STORE_PATH
+        value: /var/data/entitlements.json
+      - key: RESTORE_CODE_STORE_PATH
+        value: /var/data/restore-codes.json
+      - key: CHUNK_CACHE_PATH
+        value: /var/data/chunks
+      - key: USAGE_LOG_PATH
+        value: /var/data/usage.jsonl
       # sync:false keeps secrets out of the repo — Render prompts for these once.
       - key: GEMINI_FREE_API_KEY
         sync: false
