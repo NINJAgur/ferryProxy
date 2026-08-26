@@ -567,16 +567,37 @@ customer id, so `receipts.py` never learns which was used.
       ships inside the app
 - [ ] **16.7** Twelve testers, fourteen continuous days on a closed track — the release
       is with Google for review
-- [ ] **16.9** Apply for production access
+- [ ] **16.9** Apply for production access, which needs 16.7 finished
+- [x] **16.11** **A purchase is counted, not held.** A consumable does not keep an
+      entitlement open, so both ends asked "does this customer own `pro`?" and were
+      told no immediately after a purchase that had just succeeded — the app said it
+      had failed and nothing was charged, and the relay served the free tier. They
+      count one-time purchases now, which is what an allowance of 500 x purchases
+      needed anyway
 
 ### Phase 17 — Before going live ⚠️
 Everything here is known and unfixed. None of it blocks a release; all of it
 decides whether the release survives contact with real users.
 
-- [ ] **17.1** **Paddle account verification.** Identity and bank details. Nothing
-      can be sold on the live account until it clears, and the domain
-      `pay.rev.cat` needs manual approval — up to 5–7 business days
-- [x] **17.7** Sandbox purchases refused unless `ALLOW_SANDBOX_PURCHASES` is set.
+- [x] **17.1** **Paddle declined, four times.** An automated category review, a
+      named reviewer, a resubmission and an appeal all returned the same thing:
+      "Artificial Intelligence/Bots & Chatbots" is outside their acceptable use
+      policy. The category is accurate, so the only way to change the answer would
+      be to change the product. Play needs none of it — Google is the merchant of
+      record there and has no opinion about the category, only the content rating.
+      If web payments are wanted later, the shortlist is Lemon Squeezy, FastSpring,
+      Polar, Creem or Dodo, and the deciding question for each is whether it accepts
+      **Israeli sellers** — where Gumroad fails
+- [ ] **17.9** **A refund has never been tested.** Access used to end cleanly because
+      a refund removed the `pro` entitlement. The relay now counts purchase records,
+      and whether RevenueCat drops a refunded purchase from that history is unknown.
+      One experiment settles it: buy for real, refund it in Play Console, see whether
+      the pool goes away
+- [ ] **17.10** `ALLOW_SANDBOX_PURCHASES` is **on** so closed testers can exercise
+      the purchase without paying — a licence tester's purchase is reported as
+      sandbox. It must be off before production, where it protects nothing and
+      honours test purchases
+- [x] **17.11** Sandbox purchases refused unless `ALLOW_SANDBOX_PURCHASES` is set.
       A sandbox purchase grants the same `pro` entitlement and is bought with a
       test card, so honouring one gave the paid models away to anyone who found
       the sandbox checkout
@@ -611,18 +632,21 @@ decides whether the release survives contact with real users.
 
 ## 6. Next Steps
 
-**No code features remain, and the Play chain is now wired end to end** — merchant profile
-verified, product created, RevenueCat credentials valid, the key in the build. What is
-left is other people's queues and a calendar.
+**No code features remain and the Play chain is wired end to end** — merchant
+profile verified, product created and bought, credentials valid, the key in the
+build, purchases counted correctly. What is left is a calendar and one experiment.
 
-1. **16.7** — twelve testers, fourteen continuous days. The release is with Google for
-   review; the clock only runs once it is live on the closed track, and it is the longest
-   pole by weeks
-2. **16.9** — production access, which needs 16.7 finished first
-3. **17.1** — Paddle's domain review. Answered, waiting. Play does not depend on it, and
-   if it fails the fallback is a merchant of record that issues licence keys, which the
-   restore-code flow already fits
+1. **16.7** — twelve testers, fourteen continuous days on the closed track. Internal
+   testing does not count toward it and neither does an install from another track:
+   each tester has to open the closed track's own opt-in link. The longest pole by
+   weeks
+2. **17.9** — refund a real purchase and see whether the pool goes with it. The one
+   thing about the money that is untested
+3. **17.10** — turn `ALLOW_SANDBOX_PURCHASES` off before production
+4. **16.9** — production access, once 16.7 is done
 
-Worth doing when there is nothing else: the free tier costs $0.21 per device per month at
-100 answers, so a hundred free devices is $21 — the only cost here that grows with how
-well the app does.
+Paddle is closed (17.1). Web payments would need a different merchant of record, and
+nothing about Play depends on one.
+
+Worth knowing: the free tier costs $0.21 per device per month at 100 answers, so a
+hundred free devices is $21 — the only cost here that grows with how well the app does.

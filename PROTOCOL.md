@@ -17,11 +17,28 @@ Canonical source of truth for what Ferry puts on the wire. Mirrored in
 |---|---|
 | `none` | the UTF-8 text as-is |
 | `gzip` | `base64(gzip(bytes))` |
+| `zd` | `base64(raw deflate against the shared dictionary)` |
 
-Compressing short text is counterproductive: gzip adds ~20 bytes of header/trailer and
-base64 then inflates the result by a third, so a small prompt can more than double.
-A 66-byte prompt became 112 bytes under unconditional gzip. Both sides therefore encode
-with `encode_payload` / `encodePayload`, which compare and pick the smaller.
+Compressing short text used to be counterproductive: gzip adds ~20 bytes of
+header/trailer and base64 then inflates the result by a third, so a 66-byte prompt
+became 112 bytes under unconditional gzip. Both sides therefore encode with
+`encode_payload` / `encodePayload`, which compare every candidate and pick the smaller.
+
+`zd` is why there is no longer a crossover. Deflate encodes a repeat as a backward
+reference and a short message has nothing behind it to point at, so both ends hold 401
+bytes of what every payload repeats — the envelope keys, the model ids, the commonest
+English words — and match into that before the message starts. It has no header to
+amortise either. Measured: a 91-byte request becomes 56, a 514-byte one becomes 140
+where gzip managed 232.
+
+The dictionary lives in `server/app/protocol/dictionary.py` and
+`client/src/transport/dictionary.ts`, byte for byte identical, with the same SHA-256
+pinned by a test on each side — a dictionary that differs by one byte does not fail, it
+decompresses to rubbish.
+
+**The relay answers in `zd` only if the request arrived in `zd`.** An app that has never
+heard of the encoding would receive an answer it cannot read, which is worse than a
+larger one it can.
 
 **Checksum:** first 16 hex chars (64 bits) of the SHA-256 of the *decompressed plaintext*.
 Gzip already CRC-checks its own stream; this guards against chunks arriving mangled,
@@ -36,7 +53,7 @@ full 64-char digest cost 48 bytes in every envelope.
 ```jsonc
 {
   "r": "aZ3kP9xQ2mVt",   // requestId — also the chunk-cache key
-  "a": "none",           // algorithm: "none" | "gzip"
+  "a": "none",           // algorithm: "none" | "gzip" | "zd"
   "k": "9f2a1c7b3e5d8a04",  // checksum of the plaintext below
   "p": "{\"prompt\":\"…\"}"  // payload, encoded per "a"
 }
@@ -70,7 +87,7 @@ The server encodes the whole answer once, then either returns it whole or splits
 // POST /v1/chat response
 {
   "r": "aZ3kP9xQ2mVt",   // requestId
-  "a": "gzip",           // algorithm of the reassembled payload
+  "a": "gzip",           // algorithm of the reassembled payload: "none" | "gzip" | "zd"
   "k": "9f2a1c7b3e5d8a04",  // checksum of the full decoded plaintext
   "n": 3,                // total chunks
   "c": "H4sIAAAA…",      // chunk 0

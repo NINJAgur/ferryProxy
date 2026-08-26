@@ -81,6 +81,11 @@ There are no accounts. The store's receipt is the credential, and a restore code
 in Settings once unlocked — carries a purchase to a new device, which is the one thing a
 browser checkout cannot do on its own.
 
+Ownership is a count rather than a flag. The relay asks the store what this customer has
+bought, keys the pool to the oldest transaction so it survives a reinstall, and allows
+500 answers for each purchase — so buying again tops the pool up rather than replacing
+it.
+
 ## Testing a bad connection
 
 `scripts/simulate_loss.py` is a proxy that drops and delays requests on purpose:

@@ -86,18 +86,27 @@ build against a real store product.
 
 ## 4. Before a store submission
 
-- **The purchase is wired but unproven.** `client/src/billing/` holds the two
+- **The purchase works, and has been made.** `client/src/billing/` holds the two
   providers; on web and in Expo Go the native module does not exist, so it falls
-  back to the relay's dev endpoint, which production refuses. A real purchase has
-  never run. It cannot until all of these are true:
-  - A Play Console **managed product** exists, with a price.
-  - RevenueCat has an entitlement called exactly `pro`, attached to that product.
-  - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` is set for the build, and
-    `REVENUECAT_API_KEY` (the secret key) is set on the relay.
-  - A Google Payments **merchant profile** is approved. Play blocks every purchase
-    until it is, and this is the slowest step.
+  back to the relay's dev endpoint, which production refuses. On Play it is real,
+  and what it needed was:
+  - A Play Console one-time product, priced, created as a **consumable** so a pool
+    that runs out can be bought again.
+  - The product in RevenueCat, in a **package** inside the current offering — an
+    offering holds one product per app, and ours had only the web one for a while,
+    which is what "there is an issue with your configuration" meant.
+  - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` set for the build, and `REVENUECAT_API_KEY`
+    (the secret key) on the relay.
+  - A Google Payments merchant profile, and service credentials that take **up to 36
+    hours** to become valid — every check fails meanwhile, which looks like a mistake
+    and is not.
   - **12 testers for 14 continuous days** on a closed track, before a personal
-    account can even apply for production access.
+    account can apply for production access. Internal testing does not count toward
+    it: a tester has to open the closed track's own opt-in link.
+
+  Note what is *not* required: an entitlement. A consumable does not hold one open,
+  so both ends count one-time purchases instead — the allowance is 500 per purchase,
+  and an entitlement is a boolean.
 - Restore Purchases must work — both stores require it, and it is what removes the
   need for user accounts.
 - A privacy policy URL is required by both stores. Ferry sends prompts to the
