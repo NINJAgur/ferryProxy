@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # volume as the entitlement store: losing it strands every web buyer.
     restore_code_store_path: str = ".restore-codes.json"
 
+    # Signs the webhook the web checkout sends when someone pays. Without it the
+    # relay cannot tell a real purchase from anyone who found the URL, so the
+    # endpoint refuses everything rather than trusting what it is told.
+    lemonsqueezy_webhook_secret: Optional[str] = None
+
     # What a web checkout has reported buying. Play can be asked again at any
     # time; a web checkout announces a purchase once, so this file is the only
     # record it will ever have. It belongs on the volume.
