@@ -11,10 +11,10 @@ from app.web_purchases import web_purchases
 logger = logging.getLogger(__name__)
 
 # What the add-on is, on every store: a one-time purchase, bought again when the
-# answers run out. Deliberately NOT an entitlement — a consumable does not hold
-# one open, so asking RevenueCat "does this customer own pro?" answers no the
-# moment the purchase is consumed, however many pools they have bought.
-REVENUECAT_ENTITLEMENT = "pro"
+# answers run out. Deliberately NOT read as an entitlement — a consumable does not
+# hold one open, so asking "does this customer own pro?" answers no the moment the
+# purchase is consumed, however many pools they have bought. Purchases are counted
+# instead, which is also what makes buying twice mean two pools.
 _REVENUECAT_URL = "https://api.revenuecat.com/v1/subscribers/{app_user_id}"
 
 # Dev-only token shape, so the locked and unlocked states can be exercised before

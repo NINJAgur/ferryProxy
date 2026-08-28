@@ -4,8 +4,9 @@
  * Two implementations, because the store an app is distributed through decides
  * how it may take money: Play requires Play Billing, while an APK downloaded from
  * anywhere else — or Ferry running in a browser — takes payment through a hosted
- * web checkout. Both end with a RevenueCat customer id, which is the only thing
- * the relay ever sees, so `receipts.py` does not know or care which was used.
+ * web checkout. Both end with an id the relay can look a purchase up by — a
+ * RevenueCat customer for Play, the install's own id for the web — and that id is
+ * the only thing the relay ever sees, so the caller does not know which was used.
  */
 export interface PurchaseResult {
   /** The id the relay should verify, or null when nothing was bought. */

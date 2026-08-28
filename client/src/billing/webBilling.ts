@@ -10,9 +10,10 @@ import { BillingProvider, PurchaseResult } from "./types";
  *
  * An APK downloaded from Aptoide or GitHub, and Ferry running in a browser, are
  * both free to take payment on the web — Play's billing requirement applies only
- * to apps Play distributes. The checkout runs in a browser and RevenueCat records
- * the purchase against the id passed to it, which is this install's device id.
- * That is the same id the relay already receives, so nothing server-side changes.
+ * to apps Play distributes. The checkout runs in a browser, carrying this
+ * install's device id as custom data, and the provider hands that id back to the
+ * relay over a signed webhook. The relay records the purchase itself — no store
+ * holds it, and there is nothing to ask again later.
  *
  * The weakness is restores. A store can be asked "what did this person buy?"; a
  * web checkout cannot, so a reinstall generates a new id and loses the purchase.
@@ -107,9 +108,9 @@ async function purchaseCustomerId(): Promise<string> {
  *
  * A restore code wins when there is one: it is the whole reason a purchase can
  * move to another device, and the id this install generated has never been seen
- * by the store. Otherwise a real web purchase is recorded by RevenueCat against
+ * by the store. Otherwise a real web purchase is recorded by the relay against
  * the bare device id, and a development grant has to carry the `dev:` prefix, or
- * verification falls through to RevenueCat and refuses it — which looked exactly
+ * verification falls through to the store and is refused — which looked exactly
  * like a purchase failing.
  */
 async function receiptId(): Promise<string> {

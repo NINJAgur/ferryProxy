@@ -4,7 +4,7 @@ from app import receipts
 from app.receipts import Purchase, _purchase
 
 # Shape taken from a real RevenueCat v1 subscriber response.
-PRODUCT = "pri_01m0ggkdms35b0vzdc1txzedat"
+PRODUCT = "ferry_pro_500"
 ENTITLEMENT = {"product_identifier": PRODUCT, "expires_date": None}
 TRANSACTION = "GPA.3311-8834-1201-55118"
 

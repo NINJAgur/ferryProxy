@@ -41,7 +41,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://ferryproxy.onrender.com",
         "EXPO_PUBLIC_BILLING": "web",
-        "EXPO_PUBLIC_WEB_PURCHASE_URL": "https://pay.rev.cat/qpcpjdqivpksouwz/"
+        "EXPO_PUBLIC_WEB_PURCHASE_URL": "https://ferryproxy.lemonsqueezy.com/checkout/buy/9d068662-09a4-41e2-8b38-fdaab46ffeac"
       }
     }
   },
