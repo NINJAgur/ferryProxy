@@ -1,7 +1,10 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, ViewStyle } from "react-native";
+import { Animated, Pressable, StyleSheet, ViewStyle } from "react-native";
+
+import { Text } from "./AppText";
 
 import { PressState } from "./pressState";
+import { useMotion, usePressScale } from "../motion";
 import { colors, fonts, radius } from "../theme";
 
 interface ButtonProps {
@@ -28,9 +31,18 @@ export function Button({
   style,
 }: ButtonProps) {
   const isPrimary = variant === "primary";
+  // On a thin line the answer is seconds away, so the button itself is the only
+  // thing that can say "heard you" at the moment of the tap. The transform lives
+  // on the wrapper, not the Pressable: a Pressable styles itself from a callback
+  // and Animated cannot see a value inside a function.
+  const { scale, onPressIn, onPressOut } = usePressScale(useMotion() && !disabled);
   return (
+    <Animated.View style={[block && styles.block, { transform: [{ scale }] }]}>
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       disabled={disabled}
       style={({ hovered, pressed }: PressState) => [
         styles.base,
@@ -47,6 +59,7 @@ export function Button({
     >
       <Text style={[styles.label, !!fontSize && { fontSize }]}>{label}</Text>
     </Pressable>
+    </Animated.View>
   );
 }
 

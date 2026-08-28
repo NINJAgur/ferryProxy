@@ -1,5 +1,7 @@
 import React from "react";
-import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, StyleSheet, View } from "react-native";
+
+import { Text } from "../components/AppText";
 
 import { PressState } from "../components/pressState";
 import { VersionFooter } from "../components/VersionFooter";
@@ -56,6 +58,8 @@ function Row({
   const last = conversation.messages[conversation.messages.length - 1];
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open chat: ${conversation.title}`}
       onPress={() => onOpen(conversation.id)}
       style={({ hovered }: PressState) => [
         styles.row,
@@ -74,6 +78,8 @@ function Row({
         </Text>
       </View>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Delete this chat"
         onPress={onDelete}
         hitSlop={8}
         style={({ hovered }: PressState) => [styles.delete, hovered && { backgroundColor: colors.textHover }]}

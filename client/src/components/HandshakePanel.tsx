@@ -1,5 +1,7 @@
 import React from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+
+import { Text } from "./AppText";
 
 import { groupByProvider, groupUnlocked, PROVIDER_NAME, providerStatus } from "../modelGroups";
 import { EntitlementPhase } from "../state/entitlementStore";

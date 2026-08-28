@@ -11,7 +11,9 @@ import {
 } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
+
+import { Text } from "./src/components/AppText";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { PressState } from "./src/components/pressState";
@@ -22,6 +24,7 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { useThreadStore } from "./src/state/threadStore";
 import { useWide } from "./src/layout";
 import { installWebStyles } from "./src/webStyles";
+import { useEnter, useMotion } from "./src/motion";
 import { colors, fonts } from "./src/theme";
 
 type Screen = "chat" | "chats" | "data" | "settings";
@@ -49,6 +52,9 @@ export default function App() {
     Assistant_600SemiBold,
   });
   const openChat = useThreadStore((s) => s.open);
+  // Keyed on the screen, so switching tabs re-runs the entrance rather than
+  // cutting between two still frames.
+  const motion = useMotion();
 
   if (!loaded) {
     return <View style={styles.container} />;
@@ -66,6 +72,9 @@ export default function App() {
               <Pressable
                 key={tab.key}
                 onPress={() => setScreen(tab.key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: screen === tab.key }}
+                accessibilityLabel={tab.label}
                 style={({ hovered }: PressState) => [
                   styles.navItem,
                   wide && styles.navItemWide,
@@ -79,20 +88,24 @@ export default function App() {
             ))}
           </View>
 
-          {screen === "chat" ? (
-            <HomeScreen />
-          ) : screen === "chats" ? (
-            <ChatsScreen
-              onOpen={(id) => {
-                openChat(id);
-                setScreen("chat");
-              }}
-            />
-          ) : screen === "data" ? (
-            <HistoryScreen />
-          ) : (
-            <SettingsScreen />
-          )}
+          {/* Keyed on the screen so each tab fades in rather than cutting. */}
+          <ScreenFade key={screen} enabled={motion}>
+            {screen === "chat" ? (
+              <HomeScreen />
+            ) : screen === "chats" ? (
+              <ChatsScreen
+                onOpen={(id) => {
+                  openChat(id);
+                  setScreen("chat");
+                }}
+              />
+            ) : screen === "data" ? (
+              <HistoryScreen />
+            ) : (
+              <SettingsScreen />
+            )}
+          </ScreenFade>
+
         </View>
         <StatusBar style="light" />
       </SafeAreaView>
@@ -100,7 +113,14 @@ export default function App() {
   );
 }
 
+/** One screen replacing another, without the hard cut. */
+function ScreenFade({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  const enter = useEnter(enabled);
+  return <Animated.View style={[styles.screen, enter]}>{children}</Animated.View>;
+}
+
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.bg },
   frame: { flex: 1, width: "100%" },
   nav: {

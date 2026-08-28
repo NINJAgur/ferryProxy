@@ -40,6 +40,28 @@ export const colors = {
   textHover: "rgba(233,233,237,0.07)",
 };
 
+/**
+ * What each faded grey becomes when high contrast is on.
+ *
+ * The design ranks information by opacity, which reads as elegant to someone who
+ * can see it and as missing to someone who cannot — `text40` at 12px is below
+ * WCAG AA for everyone, not only for people who go looking for this setting.
+ * Each step is lifted rather than flattened to one value, so the ranking the
+ * design intended survives; it just stops being the difference between readable
+ * and not.
+ */
+export const contrastLift: Record<string, string> = {
+  [colors.text80]: "rgba(233,233,237,0.95)",
+  [colors.text75]: "rgba(233,233,237,0.93)",
+  [colors.text65]: "rgba(233,233,237,0.9)",
+  [colors.text60]: "rgba(233,233,237,0.88)",
+  [colors.text55]: "rgba(233,233,237,0.86)",
+  [colors.text50]: "rgba(233,233,237,0.84)",
+  [colors.text45]: "rgba(233,233,237,0.82)",
+  [colors.text40]: "rgba(233,233,237,0.8)",
+  [colors.text35]: "rgba(233,233,237,0.78)",
+};
+
 export const fonts = {
   heading: "Inter_500Medium",
   headingSemi: "Inter_600SemiBold",

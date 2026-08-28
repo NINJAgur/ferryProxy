@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
+
+import { Text } from "./AppText";
 
 import { colors, fonts, radius } from "../theme";
+import { useMotion, usePulse } from "../motion";
 import { ReassemblyStatus } from "../transport/reassemblyState";
 import { Button } from "./Button";
 
@@ -29,6 +32,9 @@ export function PendingCard({
   onNotifyMe,
 }: PendingCardProps) {
   const [elapsedMs, setElapsedMs] = useState(Date.now() - startedAt);
+  // This is the screen someone stares at longest. A slow breath says the app is
+  // still working; a still frame for forty seconds says it has died.
+  const pulse = usePulse(useMotion());
   const [warningDismissed, setWarningDismissed] = useState(false);
 
   useEffect(() => {
@@ -64,11 +70,11 @@ export function PendingCard({
   if (!chunked) {
     return (
       <View style={styles.shortCard}>
-        <Text style={styles.shortTitle}>
+        <Animated.Text style={[styles.shortTitle, { opacity: pulse }]}>
           {surfaceRetry
             ? `Still trying — attempt ${attempt + 1}.`
             : `Working on it — ${formatElapsed(elapsedMs)} so far.`}
-        </Text>
+        </Animated.Text>
         <Text style={styles.shortNote}>Answers come back a piece at a time on a connection this thin.</Text>
       </View>
     );

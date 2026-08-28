@@ -1,20 +1,8 @@
 import NetInfo from "@react-native-community/netinfo";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputKeyPressEventData,
-  View,
-} from "react-native";
+import { Animated, Keyboard, KeyboardAvoidingView, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, TextInput, TextInputKeyPressEventData, View } from "react-native";
+
+import { Text } from "../components/AppText";
 
 import { CheckState, HandshakePanel } from "../components/HandshakePanel";
 import { MessageBubble } from "../components/MessageBubble";
@@ -38,6 +26,7 @@ import { buyAddOn, initPurchases, restorePurchases } from "../billing";
 import { PressState } from "../components/pressState";
 import { useWide, WIDE_COLUMN } from "../layout";
 import { COMPOSER_ID } from "../webStyles";
+import { useEnter, useMotion } from "../motion";
 import { colors, fonts, fontsFor, readsRightToLeft } from "../theme";
 import { checkHealth, HttpError } from "../transport/httpClient";
 import { generateId } from "../transport/ids";
@@ -88,6 +77,7 @@ export function HomeScreen() {
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
 
   const threadRef = useRef<ScrollView>(null);
+  const motion = useMotion();
   const threadHeight = useRef(0);
   const atBottom = useRef(true);
 
@@ -483,6 +473,8 @@ export function HomeScreen() {
           {/* Starting a fresh chat belongs beside the chat, not in the list of
               old ones. */}
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start a new chat"
             onPress={() => startNew(generateId())}
             style={({ hovered }: PressState) => [
               styles.newBtn,
@@ -521,6 +513,9 @@ export function HomeScreen() {
         // the default swallows the press that starts a selection to do just that.
         keyboardShouldPersistTaps="handled"
       >
+        {/* Keyed on the conversation, so starting a new chat fades the thread
+            in rather than blanking it between two frames. */}
+        <ThreadFade key={activeId ?? "none"} enabled={motion}>
         <QueuedList messages={queued} />
         {/* Queued messages are listed in QueuedList; don't repeat them as bubbles. */}
         {messages
@@ -548,12 +543,14 @@ export function HomeScreen() {
             />
           )
         )}
+        </ThreadFade>
       </ScrollView>
 
       <View style={styles.composerBar}>
       <View style={[styles.composer, wide && styles.column]}>
         <TextInput
           ref={inputRef}
+          accessibilityLabel="Your question"
           nativeID={COMPOSER_ID}
           style={[
             styles.input,
@@ -599,6 +596,8 @@ export function HomeScreen() {
           returnKeyType="send"
         />
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send"
           onPress={handleSend}
           disabled={busy || !draft.trim()}
           style={({ hovered }: PressState) => [
@@ -631,6 +630,12 @@ function countWord(n: number): string {
 const COMPOSER_MAX_HEIGHT = 160;
 /** The same ceiling counted in lines, for the platforms that measure that way. */
 const COMPOSER_MAX_LINES = 6;
+
+/** One conversation replacing another, without the blink. */
+function ThreadFade({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  const enter = useEnter(enabled);
+  return <Animated.View style={enter}>{children}</Animated.View>;
+}
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },

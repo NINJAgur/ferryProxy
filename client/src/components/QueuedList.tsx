@@ -1,5 +1,7 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+
+import { Text } from "./AppText";
 
 import { QueuedMessage } from "../queue/offlineQueue";
 import { colors, fonts } from "../theme";

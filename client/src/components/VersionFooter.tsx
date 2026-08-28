@@ -1,5 +1,7 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+
+import { Text } from "./AppText";
 
 import { useWide, WIDE_COLUMN } from "../layout";
 import { colors, fonts } from "../theme";

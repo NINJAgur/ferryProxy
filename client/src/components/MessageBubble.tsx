@@ -1,10 +1,13 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
+
+import { Text } from "./AppText";
 
 import { useMetricsStore } from "../state/metricsStore";
 import { ThreadMessage } from "../state/thread";
 import { Markdown } from "./Markdown";
 import { PressState } from "./pressState";
+import { useEnter, useMotion } from "../motion";
 import { colors, fonts, fontsFor, radius, readsRightToLeft } from "../theme";
 
 interface MessageBubbleProps {
@@ -24,12 +27,14 @@ function costFor(id: string): string | null {
 
 export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
   const cost = costFor(message.id);
+  // An answer that took forty seconds should arrive, not appear between frames.
+  const enter = useEnter(useMotion());
   const isUser = message.role === "user";
   const failed = message.status === "failed";
   const retrying = message.status === "sending" && !!message.failReason;
 
   return (
-    <View style={[styles.row, isUser ? styles.rowUser : styles.rowAssistant]}>
+    <Animated.View style={[styles.row, isUser ? styles.rowUser : styles.rowAssistant, enter]}>
       <View
         style={[
           styles.bubble,
@@ -60,6 +65,8 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
           <Text style={styles.retryLabel}>{retrying ? "Trying again…" : "Didn't get through"}</Text>
           {onRetry ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send this message again"
               onPress={onRetry}
               disabled={retrying}
               style={({ hovered }: PressState) => [
@@ -98,7 +105,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
           </Text>
         </View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 

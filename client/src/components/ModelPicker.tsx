@@ -1,5 +1,7 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+
+import { Text } from "./AppText";
 
 import { groupByProvider, PROVIDER_NAME } from "../modelGroups";
 import { colors, fonts, radius } from "../theme";
@@ -45,6 +47,7 @@ export function ModelPicker({ value, onChange, disabled, models }: ModelPickerPr
           return (
             <Pressable
               key={provider}
+              accessibilityRole="radio"
               onPress={() => pickProvider(provider)}
               disabled={disabled || locked}
               style={({ hovered }: PressState) => [
@@ -72,6 +75,8 @@ export function ModelPicker({ value, onChange, disabled, models }: ModelPickerPr
             return (
               <Pressable
                 key={model.id}
+                accessibilityRole="radio"
+                accessibilityLabel={`${model.label}${model.unlocked ? "" : " — locked"}`}
                 onPress={() => onChange(model.id)}
                 disabled={disabled || locked}
                 style={({ hovered }: PressState) => [

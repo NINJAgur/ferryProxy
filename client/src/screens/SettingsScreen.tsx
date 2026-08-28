@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+
+import { Text } from "../components/AppText";
+import {
+  TEXT_SCALES,
+  TEXT_SIZE_LABELS,
+  TextSize,
+  useAccessibilityStore,
+} from "../state/accessibilityStore";
 
 import { FadingRule } from "../components/FadingRule";
 import { PressState } from "../components/pressState";
@@ -57,6 +65,7 @@ async function purchase(step: () => Promise<{ receipt: string | null }>): Promis
 }
 
 export function SettingsScreen() {
+  const a11y = useAccessibilityStore();
   // Opening this screen is the moment the number matters, and it is a deliberate
   // act rather than something happening mid-conversation — so it is a fair place
   // to spend a request putting the count back in step with the relay.
@@ -104,6 +113,9 @@ export function SettingsScreen() {
           {SETTINGS.map((row) => (
             <Pressable
               key={row.key}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: settings[row.key] }}
+              accessibilityLabel={row.label}
               onPress={() => settings.setSetting(row.key, !settings[row.key])}
               style={({ hovered }: PressState) => [styles.row, hovered && { backgroundColor: colors.textHover }]}
             >
@@ -114,6 +126,77 @@ export function SettingsScreen() {
               <Toggle value={settings[row.key]} />
             </Pressable>
           ))}
+        </View>
+
+        <Text style={[styles.sectionTitle, wide && styles.sectionTitleWide]}>Reading and contrast</Text>
+        <Text style={[styles.sectionNote, wide && styles.sectionNoteWide]}>
+          These apply everywhere in the app — answers, buttons and labels together.
+        </Text>
+
+        <View style={styles.sizeRow} accessibilityRole="radiogroup" accessibilityLabel="Text size">
+          {(Object.keys(TEXT_SIZE_LABELS) as TextSize[]).map((size) => {
+            const active = a11y.textSize === size;
+            return (
+              <Pressable
+                key={size}
+                onPress={() => a11y.setTextSize(size)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Text size ${TEXT_SIZE_LABELS[size]}`}
+                style={({ hovered }: PressState) => [
+                  styles.sizePill,
+                  active && styles.sizePillActive,
+                  hovered && !active && { backgroundColor: colors.textHover },
+                ]}
+              >
+                {/* Each option is drawn at the size it sets, so the choice is
+                    made by reading it rather than by guessing what a word means. */}
+                <Text
+                  style={[
+                    styles.sizePillLabel,
+                    { fontSize: 13 * TEXT_SCALES[size] },
+                    active && styles.sizePillLabelActive,
+                  ]}
+                >
+                  {TEXT_SIZE_LABELS[size]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.list}>
+          <Pressable
+            onPress={() => a11y.setHighContrast(!a11y.highContrast)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: a11y.highContrast }}
+            style={({ hovered }: PressState) => [styles.row, hovered && { backgroundColor: colors.textHover }]}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Stronger contrast</Text>
+              <Text style={styles.rowNote}>
+                Ferry greys out the less important text. This brings it back up to full strength.
+              </Text>
+            </View>
+            <Toggle value={a11y.highContrast} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => a11y.setReduceMotion(!a11y.reduceMotion)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: a11y.reduceMotion }}
+            accessibilityLabel="Less movement"
+            style={({ hovered }: PressState) => [styles.row, hovered && { backgroundColor: colors.textHover }]}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Less movement</Text>
+              <Text style={styles.rowNote}>
+                Answers appear without fading in, and the waiting card stops pulsing.
+              </Text>
+            </View>
+            <Toggle value={a11y.reduceMotion} />
+          </Pressable>
+
         </View>
 
         <Text style={[styles.sectionTitle, wide && styles.sectionTitleWide]}>Your plan</Text>
@@ -224,12 +307,16 @@ export function SettingsScreen() {
         </Text>
         <View style={[styles.dangerRow, wide && styles.dangerRowWide]}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete every chat on this device"
             onPress={() => confirmThen("Delete every chat on this device?", clearChats)}
             style={({ hovered }: PressState) => [styles.danger, hovered && { backgroundColor: colors.textHover }]}
           >
             <Text style={styles.dangerLabel}>Delete all chats</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear the bandwidth history"
             onPress={() => confirmThen("Clear the bandwidth history?", clearMetrics)}
             style={({ hovered }: PressState) => [styles.danger, hovered && { backgroundColor: colors.textHover }]}
           >
@@ -276,6 +363,19 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowLabel: { fontFamily: fonts.body, fontSize: 14.5, color: colors.text },
   rowNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text45, marginTop: 3, lineHeight: 17.4 },
+  sizeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 12, flexWrap: "wrap" },
+  sizePill: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.neutral800,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  sizePillActive: { borderColor: colors.accent, backgroundColor: colors.accent900 },
+  sizePillLabel: { fontFamily: fonts.heading, color: colors.text65 },
+  sizePillLabelActive: { color: colors.accent200 },
   sectionTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, marginTop: 28, marginBottom: 6 },
   sectionNote: { fontFamily: fonts.body, fontSize: 12, color: colors.text45, lineHeight: 18, marginBottom: 6 },
   connRow: {
