@@ -12,7 +12,7 @@ TRANSACTION = "GPA.3311-8834-1201-55118"
 def record(is_sandbox=False, transaction=TRANSACTION, purchased="2026-08-01T10:00:00Z"):
     return {
         "is_sandbox": is_sandbox,
-        "store": "paddle",
+        "store": "play_store",
         "store_transaction_id": transaction,
         "purchase_date": purchased,
     }

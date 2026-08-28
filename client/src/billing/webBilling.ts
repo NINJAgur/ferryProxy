@@ -37,11 +37,13 @@ export const webBilling: BillingProvider = {
     // relay — and it is the only way to exercise the flow before a store exists.
     if (!PURCHASE_URL) return devGrant();
 
-    // RevenueCat takes the customer id as a trailing path segment, not a query
-    // parameter. A link without one 404s rather than erroring, so getting this
-    // shape wrong looks exactly like a broken purchase link.
+    // The checkout carries the customer id as custom data and hands it back on
+    // the webhook, which is the only thing tying a payment to an install. A
+    // trailing path segment — which is what RevenueCat's links wanted — 404s
+    // here, and a 404 looks exactly like a broken purchase link.
     const id = await purchaseCustomerId();
-    const url = `${PURCHASE_URL.replace(/\/+$/, "")}/${encodeURIComponent(id)}`;
+    const separator = PURCHASE_URL.includes("?") ? "&" : "?";
+    const url = `${PURCHASE_URL}${separator}checkout[custom][customer_id]=${encodeURIComponent(id)}`;
 
     try {
       await Linking.openURL(url);

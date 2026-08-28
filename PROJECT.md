@@ -527,7 +527,7 @@ customer id, so `receipts.py` never learns which was used.
       listed under
 - [x] **15.3** `eas.json` profiles: `preview`, `production`, `sideload`
 - [x] **15.4** `EXPO_PUBLIC_WEB_PURCHASE_URL` wired to a RevenueCat purchase link
-- [x] **15.6** **A real purchase works, verified end to end.** Paddle sandbox took
+- [x] **15.6** **A real purchase works, verified end to end.** A web sandbox took
       $10, RevenueCat recorded entitlement `pro` with no expiry against the right
       customer, and the relay read it back with its secret key
 - [x] **15.7** The customer id is a **path segment**, not the query parameter
@@ -579,15 +579,15 @@ customer id, so `receipts.py` never learns which was used.
 Everything here is known and unfixed. None of it blocks a release; all of it
 decides whether the release survives contact with real users.
 
-- [x] **17.1** **Paddle declined, four times.** An automated category review, a
-      named reviewer, a resubmission and an appeal all returned the same thing:
-      "Artificial Intelligence/Bots & Chatbots" is outside their acceptable use
-      policy. The category is accurate, so the only way to change the answer would
-      be to change the product. Play needs none of it — Google is the merchant of
-      record there and has no opinion about the category, only the content rating.
-      If web payments are wanted later, the shortlist is Lemon Squeezy, FastSpring,
-      Polar, Creem or Dodo, and the deciding question for each is whether it accepts
-      **Israeli sellers** — where Gumroad fails
+- [x] **17.1** **The first web merchant of record declined, and the file is closed.**
+      An automated category review, a named reviewer, a resubmission and two appeals
+      all returned the same thing: "Artificial Intelligence/Bots & Chatbots" sits
+      outside their acceptable use policy, and the last reply called the decision
+      final for this business model. Play needs none of it — Google is the merchant
+      of record there and has no opinion about the category, only the content rating.
+      **Lemon Squeezy** is the replacement, chosen because it takes Israeli sellers
+      (Stripe Connect Express handles the payout) and does not ban the category
+      outright. Creem, Polar and Dodo are the fallbacks, in that order
 - [x] **17.9** **A refund revokes access, and needs no code.** Tested with a real
       purchase: RevenueCat *removes* a refunded purchase from the customer's record
       rather than marking it, so counting purchases handles refunds by itself.
@@ -618,8 +618,10 @@ build, purchases counted correctly. What is left is a calendar and one experimen
 3. **17.10** — turn `ALLOW_SANDBOX_PURCHASES` off before production
 4. **16.9** — production access, once 16.7 is done
 
-Paddle is closed (17.1). Web payments would need a different merchant of record, and
-nothing about Play depends on one.
+The web route is moving to Lemon Squeezy (17.1): store created, verification pending,
+product `Ferry Pro — 500 answers` at $20. The purchase store and the lookup in
+`verify_receipt` are built and tested; the webhook endpoint is not. Nothing about Play
+depends on any of it.
 
 Worth knowing: the free tier costs $0.21 per device per month at 100 answers, so a
 hundred free devices is $21 — the only cost here that grows with how well the app does.

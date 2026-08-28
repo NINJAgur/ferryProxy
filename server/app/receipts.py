@@ -6,6 +6,7 @@ import httpx
 
 from app.config import settings
 from app.restore_codes import restore_codes
+from app.web_purchases import web_purchases
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,19 @@ def _purchase(subscriber: dict) -> Optional[Purchase]:
     return Purchase(id=str(purchase_id), count=len(records))
 
 
+def _web_purchase(customer_id: str) -> Optional[Purchase]:
+    """What this customer bought through a web checkout, if anything.
+
+    Shaped exactly like a store purchase so nothing downstream can tell them
+    apart: keyed to the oldest order so the pool stays in one place, counting
+    the rest so buying again tops it up.
+    """
+    orders = web_purchases.orders_for(customer_id)
+    if not orders:
+        return None
+    return Purchase(id=orders[0], count=len(orders))
+
+
 def customer_for(token: str) -> str:
     """The store's customer behind a receipt, following a restore code.
 
@@ -131,6 +145,12 @@ async def verify_receipt(token: str) -> Optional[Purchase]:
             logger.info("rejected a dev receipt: dev subscriptions are off")
             return None
         return Purchase(id=token, dev=True)
+
+    # Before RevenueCat, because a web purchase is not recorded there at all —
+    # and asking about it over the network would cost a round trip to be told no.
+    web = _web_purchase(token)
+    if web is not None:
+        return web
 
     if not settings.revenuecat_api_key:
         # Refusing is the safe direction: treating an unverifiable token as paid

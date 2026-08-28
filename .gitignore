@@ -16,6 +16,7 @@ server/.certs/
 server/.entitlements.json
 # Codes that unlock a purchase, and answers waiting to be collected.
 server/.restore-codes.json
+server/.web-purchases.json
 server/.chunks/
 
 # Node / Expo

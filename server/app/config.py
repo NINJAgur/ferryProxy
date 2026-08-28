@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # volume as the entitlement store: losing it strands every web buyer.
     restore_code_store_path: str = ".restore-codes.json"
 
+    # What a web checkout has reported buying. Play can be asked again at any
+    # time; a web checkout announces a purchase once, so this file is the only
+    # record it will ever have. It belongs on the volume.
+    web_purchase_store_path: str = ".web-purchases.json"
+
     # Where the app itself lives. The relay serves the pricing and policy pages,
     # so without this they describe a product with no way to reach it.
     web_app_url: str = "https://ferryproxy.ninjagur-dev.workers.dev"

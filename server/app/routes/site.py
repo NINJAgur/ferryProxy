@@ -162,10 +162,9 @@ bought it.</p>
 at checkout, or the receipt sent to you by our payment provider.</p>
 
 <h2>How it is paid back</h2>
-<p>Refunds return to the original payment method. Purchases made through the web
-checkout are handled by Paddle, our merchant of record, and refunds are processed
-by them. Purchases made through Google Play are handled under Google's refund
-policy, and can also be requested directly from Google.</p>
+<p>Refunds return to the original payment method. Purchases made through Google Play are
+handled under Google's refund policy, and can also be requested directly from
+Google.</p>
 
 <h2>What a refund does</h2>
 <p>The paid models lock again. Gemini Flash continues to work free, and your
