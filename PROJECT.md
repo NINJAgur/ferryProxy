@@ -1,6 +1,6 @@
 # PROJECT.md — Ferry: an LLM relay for connections that barely work
 > **Source of Truth** — architecture, decisions, findings and open work are tracked here.
-> Last updated: 2026-08-20
+> Last updated: 2026-08-30
 
 ---
 
@@ -30,18 +30,21 @@ channel (simulating SMS, basic text packets, or minimal airplane Wi-Fi):
 
 - **One free app**, a single store listing. Ferry installs free and free Gemini Flash works
   immediately, with no account and no setup.
-- **One non-consumable in-app purchase** ("unlock all models"), shown on the store listing
-  under In-App Purchases and bought inside the app. It unlocks advanced Gemini, GPT and Claude.
+- **One in-app purchase**, $20 for a pool of 500 answers, shown on the store listing under
+  In-App Purchases and bought inside the app. It unlocks advanced Gemini, GPT and Claude.
+  **Sold through Google Play and nowhere else** (17.11).
 - **No user accounts.** The store owns the purchase record; *Restore Purchases* replays it
   onto a new device.
 - **The receipt is the credential.** The relay pays the API bill, so the device sends its
   store receipt / RevenueCat token and the relay validates it server-side.
-- **A monthly fair-use cap measured in answers**, keyed by receipt. Over the cap, paid
-  models fall back to free Gemini until reset.
+- **A finite pool of answers**, keyed to the purchase rather than the install. Spent, the
+  paid models fall back to free Gemini; buying again adds another pool.
+- **Every answer can be reported** from inside the app, which Play requires of anything
+  generating content with AI (17.12).
 - **Four service-account keys**, created by hand and held only on the relay: Gemini free,
   Gemini paid, OpenAI, Anthropic.
 
-Pricing is set later from measured per-answer cost, after store commission.
+Priced at $20 from measured cost: a 500-answer pool costs $1.74 to serve.
 
 ### 1.2 Data Flow
 
@@ -71,7 +74,7 @@ Pricing is set later from measured per-answer cost, after store commission.
 │       │   (NOT a token cap: thinking models spend a low cap on hidden  │
 │       │    reasoning and get truncated mid-sentence)                   │
 │       │                                                                │
-│       ├─ validate receipt → tier · check monthly answer allowance     │
+│       ├─ validate receipt → tier · check what is left of the pool     │
 │       └─ pick the service key the model's tier requires               │
 │                    │                                                   │
 │                    ▼  anthropic / openai / gemini  (stream disabled)   │
@@ -117,9 +120,9 @@ Design source was a `Ferry.html` mockup (since removed from the repo).
 | **App state** | Zustand + `zustand/persist` |
 | **Chat storage** | `expo-file-system` → `ferry-chats.json` in the document dir (web falls back to `localStorage`) |
 | **Compression** | stdlib `gzip` (relay) / `pako` (app), base64 via `base64-js` |
-| **Purchases** | RevenueCat wrapping StoreKit + Play Billing — needs a dev build, not Expo Go |
-| **Relay storage** | SQLAlchemy → SQLite locally, managed Postgres in production (entitlements + usage) |
-| **Hosting** | Fly.io / Railway / Render + managed Postgres — the store distributes the app, the relay is hosted separately |
+| **Purchases** | RevenueCat wrapping Play Billing — needs a dev build, not Expo Go. Play only (17.11) |
+| **Relay storage** | JSON and JSONL files on a mounted volume — entitlements, usage, reports. No database: one relay, a few hundred rows |
+| **Hosting** | Render, $7/mo, with a persistent disk at `/var/data` — Play distributes the app, the relay is hosted separately |
 | **Tests** | pytest (relay) + Jest/jest-expo (app) |
 | **Fonts** | Inter via `@expo-google-fonts/inter` |
 
@@ -295,11 +298,13 @@ credentials: a store purchase unlocks models, and no key ever reaches a device.
   accounts.
 - **The relay verifies.** The device sends its store receipt / RevenueCat token; the relay
   validates it server-side. A missing or invalid receipt means free tier, not an error.
-- **Commission**: 15% on Google Play's first $1M/yr, 30% above it. The web checkout
-  costs roughly 5% instead, which is the whole reason both routes exist. Price is set
-  from per-answer cost *after* commission.
-- **Store obligations that are real work**: a Restore Purchases button, and product
-  disclosure in-app and on the listing.
+- **Commission**: 15% on Google Play's first $1M/yr, 30% above it. A web checkout would
+  have cost roughly 5%, which is what made it worth attempting — but two merchants of
+  record declined the category, so Play's cut is the only one there is (17.11). Price is
+  set from per-answer cost *after* commission.
+- **Store obligations that are real work**: a Restore Purchases button, product
+  disclosure in-app and on the listing, and — because the app generates content with AI
+  — a way to report an answer without leaving it (17.12).
 
 ### 4.1b API and model provisioning
 
@@ -512,37 +517,26 @@ blockers, not deployment tasks.
       `server/app/db.py`, `server/app/models.py`
 
 ### Phase 15 — Three ways to ship one app 📦
-Distribution and billing are separate choices. RevenueCat normalises both into a
-customer id, so `receipts.py` never learns which was used.
+Distribution and billing were meant to be separate choices. They are not any more:
+Ferry sells through Play or not at all (17.11), so everywhere else runs the free
+model with the paid ones visibly locked.
 
 | Target | Profile | Billing | Where it lives |
 |---|---|---|---|
 | Play | `production` (AAB) | Play Billing | Google Play |
-| Sideload | `sideload` (APK) | Web checkout | Aptoide, GitHub Releases |
-| Browser | `expo export` | Web checkout | **live** — `ferryproxy.ninjagur-dev.workers.dev` |
+| Browser | `expo export` | none | **live** — `ferryproxy.ninjagur-dev.workers.dev` |
 
-- [x] **15.1** `BillingProvider` interface; `playBilling` and `webBilling` behind it
-- [x] **15.2** `chooseBilling` pure and pinned by tests; defaults to the web checkout
+- [x] **15.1** `BillingProvider` interface; `playBilling` and a stub behind it
+- [x] **15.2** `chooseBilling` pure and pinned by tests; defaults away from Play
       because guessing "play" for an unlisted build would breach terms it was never
       listed under
-- [x] **15.3** `eas.json` profiles: `preview`, `production`, `sideload`
-- [x] **15.4** `EXPO_PUBLIC_WEB_PURCHASE_URL` wired to a RevenueCat purchase link
-- [x] **15.6** **A real purchase works, verified end to end.** A web sandbox took
-      $10, RevenueCat recorded entitlement `pro` with no expiry against the right
-      customer, and the relay read it back with its secret key
-- [x] **15.7** The customer id is a **path segment**, not the query parameter
-      RevenueCat's prose describes. A link without one 404s rather than erroring,
-      so the wrong shape looked exactly like a broken link
-- [x] **15.5** **Restore codes.** Play can be asked what an account bought; a
-      browser checkout cannot, so a web purchase was stranded on the install that
-      made it. The buyer is now given a code that resolves to the customer id the
-      purchase was made under — the store still decides entitlement and what is left
-      of the pool, so the code is a portable alias, not a second source of truth.
-      Shown in Settings once unlocked, entered there on a new device
-- [x] **15.8** **A device holding a restore code buys as the customer it points
-      at.** Otherwise the purchase link carried this install's id, RevenueCat opened
-      a second customer with its own transaction, and the receipt — the code — still
-      resolved to the first. The second $20 bought answers the relay never saw
+- [x] **15.3** `eas.json` profiles: `development`, `preview`, `production`
+- [x] **15.6** **A real purchase works, verified end to end.** Bought on Play for
+      real money, counted correctly, then refunded and revoked (17.9)
+- [x] **15.9** **Everything built for a web checkout was removed** — the provider,
+      the purchase store, the signed webhook, the restore codes and the pages that
+      described them. See 17.11 for why
+
 - [x] **16.1** Play Console account approved
 - [x] **16.3** AAB built (`eas build -p android --profile production`) and uploaded
       to the internal testing track
@@ -585,9 +579,7 @@ decides whether the release survives contact with real users.
       outside their acceptable use policy, and the last reply called the decision
       final for this business model. Play needs none of it — Google is the merchant
       of record there and has no opinion about the category, only the content rating.
-      **Lemon Squeezy** is the replacement, chosen because it takes Israeli sellers
-      (Stripe Connect Express handles the payout) and does not ban the category
-      outright. Creem, Polar and Dodo are the fallbacks, in that order
+      A second merchant of record was tried, and declined too — see 17.11
 - [x] **17.9** **A refund revokes access, and needs no code.** Tested with a real
       purchase: RevenueCat *removes* a refunded purchase from the customer's record
       rather than marking it, so counting purchases handles refunds by itself.
@@ -595,6 +587,41 @@ decides whether the release survives contact with real users.
       ones beside it did not. The delivery mechanism is the Pub/Sub notification:
       refund first, connect notifications afterwards, and RevenueCat never hears
       about it, because they are not backfilled
+- [x] **17.11** **Ferry sells through Play or not at all.** The second merchant of
+      record declined without a reason beyond "regulations imposed on us by Stripe,
+      PayPal and card companies" — and it, like Polar and Creem, runs on Stripe, so
+      the constraint is likely upstream of any of them. Two independent underwriters
+      refusing the same category is a pattern, not luck. The web checkout and
+      everything built for it is gone (15.9); the browser build still runs the free
+      model. Only providers with their own acquiring — FastSpring, Dodo — could
+      answer differently, and are worth trying once there is trading history to show.
+      **None of this touches Play:** Google is already the merchant of record there,
+      has taken a real purchase and processed a real refund, and underwrites content
+      policy rather than the seller
+- [x] **17.12** **Reporting, because the same category obliges it on Play.** Google's
+      AI-Generated Content policy requires an app generating content with AI to let
+      people flag it "without needing to exit the app", and to use what they send.
+      Every answer carries a Report action; the answer travels with the model that
+      wrote it, since "an answer was offensive" is not actionable when three providers
+      are on offer. Reports land in `REPORT_LOG_PATH` and `usage_report.py` prints
+      them. The privacy policy said the relay keeps no record of your conversations;
+      a reported answer is a record, so it says so now
+- [x] **17.13** **Accessibility.** Text size in four steps, stronger contrast — the
+      meta line was 12px at 40% opacity, below WCAG AA for everyone — and screen
+      reader labels on twelve controls that had none. The scaling happens once in a
+      Text wrapper rather than across a hundred edited StyleSheets, and at the default
+      setting the style is passed through untouched
+- [x] **17.14** **An answer can be selected whole.** It was one Text view per
+      paragraph, and Android selection cannot cross a view boundary, so a gesture
+      stopped at the first blank line. One Text with the paragraphs nested in it now —
+      the shape every other assistant app uses. The cost is that direction is decided
+      once per answer rather than per paragraph
+- [x] **17.15** **The app moves.** It waited forty seconds and then changed between
+      two still frames, which reads as broken rather than finished. Answers fade and
+      rise, the waiting line breathes, threads and screens cross-fade, switches slide.
+      On `Animated`, not Reanimated, whose worklets dependency does not agree with
+      expo-modules-core. All of it answers to a Less movement setting seeded from the
+      device's own preference
 - [x] **17.10** `ALLOW_SANDBOX_PURCHASES` is **off**, which is what production needs:
       a licence tester's purchase is reported as sandbox, and honouring those would
       hand the paid models to anyone who could make one. The cost is that a closed
@@ -605,23 +632,22 @@ decides whether the release survives contact with real users.
 
 ## 6. Next Steps
 
-**No code features remain and the Play chain is wired end to end** — merchant
-profile verified, product created and bought, credentials valid, the key in the
-build, purchases counted correctly. What is left is a calendar and one experiment.
+**Nothing is blocked on code.** The Play chain is wired and proven end to end — a real
+purchase taken, counted, refunded and revoked — and the app is compliant with the
+policies its own category attracts. What is left is a calendar and a form.
 
 1. **16.7** — twelve testers, fourteen continuous days on the closed track. Internal
    testing does not count toward it and neither does an install from another track:
-   each tester has to open the closed track's own opt-in link. The longest pole by
-   weeks
-2. **17.9** — refund a real purchase and see whether the pool goes with it. The one
-   thing about the money that is untested
-3. **17.10** — turn `ALLOW_SANDBOX_PURCHASES` off before production
-4. **16.9** — production access, once 16.7 is done
+   each tester has to open the closed track's own opt-in link. The longest pole by weeks
+2. **16.9** — production access, once 16.7 is done
+3. **On the next deploy** — set `REPORT_LOG_PATH=/var/data/reports.jsonl`. Without it
+   reports are written to a read-only path, caught, logged and lost, which is the same
+   shape as the `/app/.chunks` failure. The three settings the web route used —
+   `RESTORE_CODE_STORE_PATH`, `WEB_PURCHASE_STORE_PATH`, `LEMONSQUEEZY_WEBHOOK_SECRET` —
+   now do nothing and can go
 
-The web route is moving to Lemon Squeezy (17.1): store created, verification pending,
-product `Ferry Pro — 500 answers` at $20. The purchase store and the lookup in
-`verify_receipt` are built and tested; the webhook endpoint is not. Nothing about Play
-depends on any of it.
+Web payments are closed (17.11) and worth revisiting only with trading history behind
+them, against a provider that does its own acquiring rather than one reselling Stripe.
 
 Worth knowing: the free tier costs $0.21 per device per month at 100 answers, so a
 hundred free devices is $21 — the only cost here that grows with how well the app does.

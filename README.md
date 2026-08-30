@@ -134,9 +134,6 @@ asking for less beats compressing more.
 - Cached chunks are written to disk as well as held in memory, so an answer survives a
   restart mid-collection — but the cache is local to one relay, so it is still
   single-instance by design.
-- Ferry Pro is sold through Google Play only. Two merchants of record declined the
-  category, so a browser or a sideloaded APK gets the free model and nothing to buy.
-- TLS-intercepting antivirus (Avast and similar) will block the relay's outbound HTTPS
-  until its CA is added to a trust bundle; `SSL_CERT_FILE` points Python at one.
+- Ferry Pro is sold through Google Play only.
 - Ferry is its own client. It cannot compress traffic from the official ChatGPT or Gemini
   apps — that traffic is TLS-pinned, and compression needs both ends to cooperate.
