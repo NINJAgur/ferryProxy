@@ -77,9 +77,8 @@ Gemini Flash is free, with a monthly allowance that renews. One optional purchas
 them, which does not expire and does not renew. A pool rather than a subscription because
 the payment happens once, so what it covers has to be finite.
 
-There are no accounts. The store's receipt is the credential, and a restore code — shown
-in Settings once unlocked — carries a purchase to a new device, which is the one thing a
-browser checkout cannot do on its own.
+There are no accounts. The store's receipt is the credential, and Play replays it onto a
+new device through Restore Purchases.
 
 Ownership is a count rather than a flag. The relay asks the store what this customer has
 bought, keys the pool to the oldest transaction so it survives a reinstall, and allows
@@ -135,8 +134,8 @@ asking for less beats compressing more.
 - Cached chunks are written to disk as well as held in memory, so an answer survives a
   restart mid-collection — but the cache is local to one relay, so it is still
   single-instance by design.
-- Play Billing only works in a build Play itself installed. A sideloaded APK cannot buy
-  anything, which is why the web checkout exists at all.
+- Ferry Pro is sold through Google Play only. Two merchants of record declined the
+  category, so a browser or a sideloaded APK gets the free model and nothing to buy.
 - TLS-intercepting antivirus (Avast and similar) will block the relay's outbound HTTPS
   until its CA is added to a trust bundle; `SSL_CERT_FILE` points Python at one.
 - Ferry is its own client. It cannot compress traffic from the official ChatGPT or Gemini

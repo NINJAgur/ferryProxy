@@ -190,3 +190,29 @@ export async function fetchCustomerId(receipt: string): Promise<string> {
   const body = (await response.json()) as { customerId: string };
   return body.customerId;
 }
+
+/**
+ * Flag an answer as offensive.
+ *
+ * Play requires an app that generates content with AI to let people report what
+ * it produced without leaving the app. No receipt and no device id travel with
+ * it: reporting is not a paid feature, and a complaint should not be filed
+ * against the person making it.
+ */
+export async function reportAnswer(
+  reason: string,
+  answer: string,
+  model?: string,
+  note?: string
+): Promise<void> {
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/v1/report`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ n: reason, a: answer, m: model ?? "", t: note ?? "" }),
+    },
+    COLD_START_TIMEOUT_MS
+  );
+  if (!response.ok) throw new HttpError(response.status, undefined);
+}

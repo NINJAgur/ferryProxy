@@ -56,6 +56,12 @@ payment happens once. Buying more is a matter of buying again.</p>
       provider withdraws one, changes its terms, or becomes unavailable.</li>
 </ul>
 
+<h2>Reporting an answer</h2>
+<p>Every answer carries a <strong>Report</strong> button. If a model produces something
+offensive, dangerous or plainly wrong, use it — the answer is sent to us for review, and
+what gets reported decides which models Ferry carries. Your question is not sent, and the
+report is not linked to you.</p>
+
 <h2>Fair use</h2>
 <p>Do not use Ferry to break the law, to generate material that harms others, or to
 attempt to circumvent the allowances or the app's payment. Automated or bulk use is
@@ -80,42 +86,8 @@ did.</p>
 </main></body></html>
 """
 
-_DONE = """<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ferry — Purchase complete</title><style>{style}</style></head><body><main>
-
-<h1>Thank you.</h1>
-<p class="sub">If you paid just now, your receipt is emailed to the address you
-entered at checkout. If you already owned Ferry Pro, there is nothing to pay and
-no receipt to send.</p>
-
-<div class="box">
-  <p><strong>Return to Ferry and press "Restore purchases"</strong> — on the opening
-  screen, or in Settings under "Your plan".</p>
-</div>
-
-<p>If nothing unlocks, give it a few seconds and press it again.</p>
-
-<p><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
-
-</main></body></html>
-"""
-
-
 @router.get("/terms", response_class=HTMLResponse)
 async def terms() -> HTMLResponse:
     return HTMLResponse(
         _TERMS.format(style=_STYLE, updated=settings.privacy_updated, contact=settings.privacy_contact)
     )
-
-
-@router.get("/purchase-complete", response_class=HTMLResponse)
-async def purchase_complete() -> HTMLResponse:
-    """Where the web checkout lands someone.
-
-    The purchase happens in a browser, so the app has no result to wait for — it
-    has to ask afterwards. This page exists to tell someone that, rather than
-    leaving them on a generic receipt wondering why nothing unlocked.
-    """
-    return HTMLResponse(_DONE.format(style=_STYLE))

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "./AppText";
@@ -6,6 +6,7 @@ import { Text } from "./AppText";
 import { useMetricsStore } from "../state/metricsStore";
 import { ThreadMessage } from "../state/thread";
 import { Markdown } from "./Markdown";
+import { ReportSheet } from "./ReportSheet";
 import { PressState } from "./pressState";
 import { useEnter, useMotion } from "../motion";
 import { colors, fonts, fontsFor, radius, readsRightToLeft } from "../theme";
@@ -29,6 +30,9 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
   const cost = costFor(message.id);
   // An answer that took forty seconds should arrive, not appear between frames.
   const enter = useEnter(useMotion());
+  // Play requires an app that generates content with AI to let people flag what
+  // it produced without leaving the app.
+  const [reporting, setReporting] = useState(false);
   const isUser = message.role === "user";
   const failed = message.status === "failed";
   const retrying = message.status === "sending" && !!message.failReason;
@@ -82,14 +86,33 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
           ) : null}
         </View>
       ) : (
-        <Text style={styles.meta}>
+        <View style={styles.metaRow}>
+          <Text style={styles.meta}>
           {metaLabel(message)}
           {/* What this one answer cost on the wire, next to when it landed. The
               Data screen totals whole chats; the detail belongs where the
               message is. */}
           {cost ? <Text style={styles.costDetail}>{`  ·  ${cost}`}</Text> : null}
-        </Text>
+          </Text>
+          {message.role === "assistant" && message.content ? (
+            <Pressable
+              onPress={() => setReporting(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Report this answer"
+              style={({ hovered }: PressState) => [styles.reportHit, hovered && { opacity: 1 }]}
+            >
+              <Text style={styles.report}>Report</Text>
+            </Pressable>
+          ) : null}
+        </View>
       )}
+
+      <ReportSheet
+        visible={reporting}
+        answer={message.content}
+        model={message.model}
+        onClose={() => setReporting(false)}
+      />
 
       {failed ? (
         <View style={styles.explainCard}>
@@ -142,6 +165,11 @@ const styles = StyleSheet.create({
   rightToLeft: { textAlign: "right", writingDirection: "rtl" },
   textUser: { color: colors.accent200 },
   textFailed: { color: colors.text65 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  // Present but quiet: it must be findable when an answer is wrong, and must not
+  // compete with the answer when it is right.
+  reportHit: { paddingVertical: 4, paddingHorizontal: 4, opacity: 0.75 },
+  report: { fontFamily: fonts.body, fontSize: 12, color: colors.text50, textDecorationLine: "underline" },
   meta: { fontFamily: fonts.body, fontSize: 12, color: colors.text40, paddingHorizontal: 4 },
   costDetail: { color: colors.text40 },
   retryRow: { flexDirection: "row", alignItems: "center", gap: 8 },

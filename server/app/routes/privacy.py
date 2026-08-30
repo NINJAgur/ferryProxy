@@ -57,8 +57,13 @@ provider you selected:</p>
   <li><strong>A purchase identifier</strong>, if you buy the add-on, along with how
       many of the answers it bought have been used. This comes from the app store, not
       from us.</li>
+  <li><strong>An answer you report</strong>, if you use the Report button on one. The
+      answer's text is sent to us and kept so it can be reviewed and so the model
+      behind it can be reconsidered. Your question is not sent with it, and nothing
+      identifying you or your device is attached.</li>
 </ul>
-<p>The relay keeps no record of your conversations.</p>
+<p>Other than an answer you choose to report, the relay keeps no record of your
+conversations.</p>
 
 <h2>What stays on your device</h2>
 <p>Your chats are written to a file on your own device and are not uploaded. Your

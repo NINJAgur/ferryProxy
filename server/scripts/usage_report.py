@@ -10,7 +10,7 @@ that reasoning as output without showing it.
 import json
 import statistics
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -100,11 +100,51 @@ def main() -> None:
         print(f"\nAsking for less: short answers average {statistics.mean(brief):,.0f} output "
               f"tokens against {statistics.mean(full):,.0f} — {saved:.0%} smaller.")
 
+    _reports()
+
     if unpriced:
         print("\nNo rate configured, so these are excluded from every cost above:")
         for m in unpriced:
             print(f"  {m}")
         print("Add them to server/model_prices.json as {\"model\": {\"input\": 0.0, \"output\": 0.0}}")
+
+
+def _reports() -> None:
+    """What people flagged, and about which model.
+
+    Play requires these reports to inform what the app does next, which they
+    cannot do sitting unread in a file on a volume. Printed here rather than in
+    a script of their own because this is the report someone already runs.
+    """
+    path = Path(settings.report_log_path)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parent.parent / path
+    if not path.exists():
+        return
+
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            rows.append(json.loads(line))
+        except ValueError:
+            continue
+    if not rows:
+        return
+
+    print(f"\nReported answers: {len(rows)}.")
+    by_reason = Counter(r.get("reason", "other") for r in rows)
+    for reason, count in by_reason.most_common():
+        print(f"  {reason}: {count}")
+
+    # Which provider wrote the offending answers is the actionable part: Ferry
+    # carries three and changes none of them, so the only lever is which to carry.
+    by_model = Counter(r.get("model") or "unknown" for r in rows)
+    if len(by_model) > 1 or "unknown" not in by_model:
+        print("  by model:")
+        for model, count in by_model.most_common():
+            print(f"    {model}: {count}")
+
+    print(f"  Full text: {path}")
 
 
 if __name__ == "__main__":

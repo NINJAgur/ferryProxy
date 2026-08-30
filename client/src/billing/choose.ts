@@ -3,11 +3,10 @@
  * about — and tested — without dragging a native module in behind it.
  *
  * Play requires its own billing for anything it distributes, so a Play build must
- * say so explicitly. Everything else — a direct APK, Aptoide, a browser — uses the
- * web checkout, which that rule does not reach. Defaulting to the web checkout is
- * the safe direction: guessing "play" for a build Play never distributed would put
- * it in breach of terms it was never listed under, while guessing "web" merely
- * fails to sell anything until it is configured.
+ * say so explicitly. Everything else — a direct APK, Aptoide, a browser — cannot
+ * sell anything at all. Defaulting away from Play is the safe direction: guessing
+ * "play" for a build Play never distributed would put it in breach of terms it was
+ * never listed under, while guessing the other way merely fails to sell.
  */
 export type BillingKind = "play" | "web";
 

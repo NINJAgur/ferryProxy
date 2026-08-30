@@ -31,3 +31,4 @@ Thumbs.db
 
 # Usage log — measured cost per answer, not for the repo
 server/.usage.jsonl
+server/.reports.jsonl

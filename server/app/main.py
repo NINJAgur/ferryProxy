@@ -11,9 +11,9 @@ from app.routes.chunks import router as chunks_router
 from app.routes.deletion import router as deletion_router
 from app.routes.entitlement import router as entitlement_router
 from app.routes.privacy import router as privacy_router
+from app.routes.reports import router as reports_router
 from app.routes.site import router as site_router
 from app.routes.terms import router as terms_router
-from app.routes.webhooks import router as webhooks_router
 
 configure_logging()
 
@@ -38,8 +38,8 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(chunks_router)
 app.include_router(entitlement_router)
-app.include_router(webhooks_router)
 app.include_router(privacy_router)
+app.include_router(reports_router)
 app.include_router(deletion_router)
 app.include_router(terms_router)
 app.include_router(site_router)

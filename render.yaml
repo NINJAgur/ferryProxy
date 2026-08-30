@@ -21,20 +21,17 @@ services:
         value: "500"
       # Everything the relay writes belongs on the mounted disk. The defaults sit
       # under the app directory, which is read-only in the container — the writes
-      # then fail quietly, and a restore code that was never written is a web
-      # purchase nobody can move to a new device.
+      # then fail quietly.
       - key: ENTITLEMENT_STORE_PATH
         value: /var/data/entitlements.json
-      - key: RESTORE_CODE_STORE_PATH
-        value: /var/data/restore-codes.json
       - key: CHUNK_CACHE_PATH
         value: /var/data/chunks
       - key: USAGE_LOG_PATH
         value: /var/data/usage.jsonl
-      # The web checkout announces a purchase once, over a webhook. Nothing can
-      # be asked again, so losing this file loses the purchase.
-      - key: WEB_PURCHASE_STORE_PATH
-        value: /var/data/web-purchases.json
+      # Play requires reports of offensive AI output to be acted on, which means
+      # they have to outlive the deploy that received them.
+      - key: REPORT_LOG_PATH
+        value: /var/data/reports.jsonl
       # sync:false keeps secrets out of the repo — Render prompts for these once.
       - key: GEMINI_FREE_API_KEY
         sync: false
@@ -45,8 +42,4 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: REVENUECAT_API_KEY
-        sync: false
-      # Without it the webhook endpoint refuses everything, which is the safe
-      # direction: an unverifiable purchase would unlock the paid models.
-      - key: LEMONSQUEEZY_WEBHOOK_SECRET
         sync: false

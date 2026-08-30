@@ -213,6 +213,10 @@ export function HomeScreen() {
             content,
             timestamp: Date.now(),
             status: "delivered",
+            // Which model wrote it. Shown on a retry, and sent with a report —
+            // "an answer was offensive" is not actionable without knowing who
+            // wrote it, since Ferry carries three providers and changes none.
+            model: q.model,
           });
         },
         onMessageFailed: (q, reason) => {
@@ -257,6 +261,7 @@ export function HomeScreen() {
         content: result.response.content,
         timestamp: Date.now(),
         status: "delivered",
+        model: used,
       });
       // A paid answer came out of the pool; the free model owes it nothing.
       if (entitlement.models.find((m) => m.id === used)?.tier === "paid") {

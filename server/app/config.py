@@ -53,20 +53,6 @@ class Settings(BaseSettings):
     # already been generated and paid for.
     chunk_cache_path: str = ".chunks"
 
-    # Codes that let a web purchase move to another device. Belongs on the same
-    # volume as the entitlement store: losing it strands every web buyer.
-    restore_code_store_path: str = ".restore-codes.json"
-
-    # Signs the webhook the web checkout sends when someone pays. Without it the
-    # relay cannot tell a real purchase from anyone who found the URL, so the
-    # endpoint refuses everything rather than trusting what it is told.
-    lemonsqueezy_webhook_secret: Optional[str] = None
-
-    # What a web checkout has reported buying. Play can be asked again at any
-    # time; a web checkout announces a purchase once, so this file is the only
-    # record it will ever have. It belongs on the volume.
-    web_purchase_store_path: str = ".web-purchases.json"
-
     # Where the app itself lives. The relay serves the pricing and policy pages,
     # so without this they describe a product with no way to reach it.
     web_app_url: str = "https://ferryproxy.ninjagur-dev.workers.dev"
@@ -82,12 +68,17 @@ class Settings(BaseSettings):
     # Shown on the public privacy policy the stores require. A public issue
     # tracker rather than a personal address, so the contact is not someone's inbox.
     privacy_contact: str = "https://github.com/NINJAgur/ferryProxy/issues"
-    privacy_updated: str = "20 August 2026"
+    privacy_updated: str = "30 August 2026"
 
     # One line per answer, with its token counts and cost. The data behind the
     # add-on's price: what an answer costs cannot be guessed from its length,
     # because history is re-sent every message and thinking is billed unseen.
     usage_log_path: str = ".usage.jsonl"
+
+    # What people flagged as offensive, one line each. Play requires an app that
+    # generates content with AI to take these reports and to use them; on the
+    # volume, because a report nobody can read afterwards is not a report.
+    report_log_path: str = ".reports.jsonl"
 
     # Where purchases and this month's usage are kept. Hosts give a container an
     # ephemeral filesystem, so in production this must point inside a mounted

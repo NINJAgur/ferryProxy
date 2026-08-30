@@ -5,8 +5,6 @@ from typing import List, Optional
 import httpx
 
 from app.config import settings
-from app.restore_codes import restore_codes
-from app.web_purchases import web_purchases
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +18,6 @@ _REVENUECAT_URL = "https://api.revenuecat.com/v1/subscribers/{app_user_id}"
 # Dev-only token shape, so the locked and unlocked states can be exercised before
 # a store product exists. Refused whenever dev subscriptions are turned off.
 DEV_PREFIX = "dev:"
-
-# A restore code carried by a person rather than a device. It resolves to the
-# customer id the purchase was made under; the store still decides the rest.
-CODE_PREFIX = "code:"
 
 
 class ReceiptInvalid(Exception):
@@ -98,32 +92,6 @@ def _purchase(subscriber: dict) -> Optional[Purchase]:
     return Purchase(id=str(purchase_id), count=len(records))
 
 
-def _web_purchase(customer_id: str) -> Optional[Purchase]:
-    """What this customer bought through a web checkout, if anything.
-
-    Shaped exactly like a store purchase so nothing downstream can tell them
-    apart: keyed to the oldest order so the pool stays in one place, counting
-    the rest so buying again tops it up.
-    """
-    orders = web_purchases.orders_for(customer_id)
-    if not orders:
-        return None
-    return Purchase(id=orders[0], count=len(orders))
-
-
-def customer_for(token: str) -> str:
-    """The store's customer behind a receipt, following a restore code.
-
-    A device restoring with a code is a different install from the one that
-    bought. Anything recorded against this install rather than that customer —
-    a second purchase, most of all — would land in a pool the relay never adds
-    to the first.
-    """
-    if token.startswith(CODE_PREFIX):
-        return restore_codes.resolve(token[len(CODE_PREFIX):]) or token
-    return token
-
-
 async def verify_receipt(token: str) -> Optional[Purchase]:
     """Return the purchase behind a verified receipt, or None.
 
@@ -133,24 +101,11 @@ async def verify_receipt(token: str) -> Optional[Purchase]:
     if not token:
         return None
 
-    if token.startswith(CODE_PREFIX):
-        customer_id = restore_codes.resolve(token[len(CODE_PREFIX):])
-        if customer_id is None:
-            logger.info("a restore code did not match any purchase")
-            return None
-        token = customer_id
-
     if token.startswith(DEV_PREFIX):
         if not settings.allow_dev_subscription:
             logger.info("rejected a dev receipt: dev subscriptions are off")
             return None
         return Purchase(id=token, dev=True)
-
-    # Before RevenueCat, because a web purchase is not recorded there at all —
-    # and asking about it over the network would cost a round trip to be told no.
-    web = _web_purchase(token)
-    if web is not None:
-        return web
 
     if not settings.revenuecat_api_key:
         # Refusing is the safe direction: treating an unverifiable token as paid

@@ -31,10 +31,9 @@ Environment to set on the host — everything in `.env.example`, plus:
 | `ALLOW_DEV_SUBSCRIPTION` | **unset, or `false`** | When true, anyone can unlock the paid models for free by POSTing to `/v1/dev/entitlement`. It defaults to false; do not turn it on. |
 | `REVENUECAT_API_KEY` | your key | Without it no receipt verifies, so every caller stays on the free tier. |
 | `ENTITLEMENT_STORE_PATH` | inside the volume | Otherwise purchases and usage reset on every deploy. |
-| `RESTORE_CODE_STORE_PATH` | inside the volume | The only thing linking a web purchase to a new device. Losing it strands every web buyer. |
-| `WEB_PURCHASE_STORE_PATH` | inside the volume | A web checkout announces a purchase once, over a webhook. This file is the only record it will ever have. |
 | `CHUNK_CACHE_PATH` | inside the volume | Answers waiting to be collected. Without it a deploy mid-answer loses one already generated and paid for. |
 | `USAGE_LOG_PATH` | inside the volume | What answers cost, which is how the price is set. |
+| `REPORT_LOG_PATH` | inside the volume | Answers people flagged as offensive. Play requires these to be acted on, so they have to outlive a deploy. |
 | `ALLOW_SANDBOX_PURCHASES` | **unset, or `false`** | When true a store's test purchase unlocks the paid models, and anyone who finds the sandbox checkout gets them free. |
 | `CORS_ALLOW_ORIGINS` | your web origin | Only constrains browsers; the native app sends no `Origin`. |
 
@@ -63,17 +62,16 @@ Done: `client/eas.json` points `preview` and `production` at
   has been uploaded to Play, so it cannot change. (`ios.bundleIdentifier` is set to
   match but unused — iOS is not being shipped.)
 
-Four build profiles, because where an app is distributed decides how it may take
-money. Play requires Play Billing for anything it distributes; an APK from
-anywhere else, and Ferry in a browser, use a hosted web checkout instead. The
-relay never learns which was used — RevenueCat normalises both to a customer id.
+Three build profiles. Play requires Play Billing for anything it distributes, and
+Play is the only place Ferry sells anything — two merchants of record declined the
+category, so there is no web checkout to fall back on. A browser build and a
+sideloaded APK run the free model with the paid ones visibly locked.
 
 | Profile | Output | Billing | For |
 |---|---|---|---|
 | `development` | dev client | Play | a relay on your own machine |
 | `preview` | APK | Play | installing on your own phone |
 | `production` | AAB | Play | the Play Console |
-| `sideload` | APK | web checkout | Aptoide, GitHub Releases |
 
 ```
 npm install -g eas-cli
@@ -87,14 +85,13 @@ build against a real store product.
 
 ## 4. Before a store submission
 
-- **The purchase works, and has been made.** `client/src/billing/` holds the two
-  providers; on web and in Expo Go the native module does not exist, so it falls
-  back to the relay's dev endpoint, which production refuses. On Play it is real,
-  and what it needed was:
+- **The purchase works, and has been made.** `client/src/billing/` holds the Play
+  provider and a stub for everywhere else, which reports that Ferry Pro is sold
+  only through Play. On Play it is real, and what it needed was:
   - A Play Console one-time product, priced, created as a **consumable** so a pool
     that runs out can be bought again.
   - The product in RevenueCat, in a **package** inside the current offering — an
-    offering holds one product per app, and ours had only the web one for a while,
+    offering holds one product per app, and ours had the wrong one for a while,
     which is what "there is an issue with your configuration" meant.
   - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` set for the build, and `REVENUECAT_API_KEY`
     (the secret key) on the relay.
@@ -113,7 +110,11 @@ build against a real store product.
 - A privacy policy URL is required by both stores. Ferry sends prompts to the
   relay, which forwards them to a model provider and keeps a few minutes of the
   answer's chunks; it stores no conversation of its own.
-- Disclose the add-on: what it unlocks, the monthly answer allowance, and the price.
+- Disclose the add-on: what it unlocks, the answer allowance, and the price.
+- **Reporting is required.** Play's AI-Generated Content policy obliges an app that
+  generates content with AI to let people flag it "without needing to exit the app",
+  and to use those reports. Every answer carries a Report action; the reports land in
+  `REPORT_LOG_PATH`.
 
 ## The store listing
 

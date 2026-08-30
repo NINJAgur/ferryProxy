@@ -8,8 +8,7 @@ from app.catalogue import catalogue
 from app.config import settings
 from app.entitlement import Entitlement, entitlement_store
 from app.protocol.schemas import EntitlementResponse, ErrorEnvelope
-from app.receipts import CODE_PREFIX, customer_for, verify_receipt
-from app.restore_codes import restore_codes
+from app.receipts import verify_receipt
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -112,36 +111,6 @@ async def read_entitlement(receipt: str = Header(default="", alias=RECEIPT_HEADE
     """What this device may use. No receipt is fine — that is the free tier."""
     entry = await resolve_entitlement(receipt)
     return JSONResponse(status_code=200, content=entitlement_body(entry))
-
-
-@router.post("/v1/customer")
-async def read_customer(receipt: str = Header(default="", alias=RECEIPT_HEADER)) -> JSONResponse:
-    """Who a new purchase should be recorded against.
-
-    A device that restored with a code would otherwise buy as itself, opening a
-    second customer with its own pool that the relay never adds to the first —
-    money paid for answers nobody receives.
-    """
-    return JSONResponse(status_code=200, content={"customerId": customer_for(receipt)})
-
-
-@router.post("/v1/restore-code")
-async def read_restore_code(receipt: str = Header(default="", alias=RECEIPT_HEADER)) -> JSONResponse:
-    """A code the buyer can carry to another device.
-
-    Play does not need this — it can be asked what an account bought. A browser
-    checkout cannot, so without a code a web purchase is stranded on the install
-    that made it.
-    """
-    if receipt.startswith(CODE_PREFIX):
-        # Already holding one. Handing back a second code for the same purchase
-        # would leave them unsure which of the two still works.
-        return JSONResponse(status_code=200, content={"code": receipt[len(CODE_PREFIX):]})
-
-    entry = await resolve_entitlement(receipt)
-    if entry is None:
-        return _error(403, "no_purchase", "there is no purchase to make a code for")
-    return JSONResponse(status_code=200, content={"code": restore_codes.for_customer(customer_for(receipt))})
 
 
 @router.post("/v1/dev/entitlement")
